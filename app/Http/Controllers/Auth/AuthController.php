@@ -13,14 +13,11 @@ use App\Models\User;
 use App\Notifications\ForgotPasswordCodeNotification;
 use App\Notifications\VerificationCodeNotification;
 use DB;
-use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules\Password;
-use Mail;
-use PhpParser\Node\Stmt\TryCatch;
+
 
 class AuthController extends Controller
 {
@@ -186,7 +183,7 @@ class AuthController extends Controller
         DB::table('password_reset_tokens')->updateOrInsert(
             ['email' => $request->email],
             [
-                'token' => Hash::make((string)$code),
+                'token' => Hash::make((string) $code),
                 'created_at' => now(),
             ]
         );
@@ -232,6 +229,44 @@ class AuthController extends Controller
             'reset_token' => $resetToken,
             'expires_in' => 15 * 60 // seconds
         ], 200);
+    }
+    public function resendResetCode(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        $record = DB::table('password_reset_tokens')
+            ->where('email', $user->email)
+            ->first();
+
+        // Check cooldown (60 seconds)
+        if ($record && Carbon::parse($record->created_at)->diffInSeconds(now()) < 60) {
+            return response()->json([
+                'message' => 'Please wait before requesting another reset code.'
+            ], 429);
+        }
+
+        // Generate new 6-digit OTP
+        $otp = rand(100000, 999999);
+
+        // Store new OTP (replaces old one)
+        DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $user->email],
+            [
+                'token' => Hash::make($otp),
+                'created_at' => now(),
+            ]
+        );
+
+        // Send email notification with the OTP
+        $user->notify(new ForgotPasswordCodeNotification($otp));
+
+        return response()->json([
+            'message' => 'A new reset code has been sent to your email.'
+        ], 201);
     }
     public function resetPassword(ResetPasswordRequest $request)
     {

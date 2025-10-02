@@ -13,6 +13,7 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/verify-reset-code', [AuthController::class,'verifyResetCode']);
+Route::post('/resend-reset-code', [AuthController::class, 'resendResetCode']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
 
