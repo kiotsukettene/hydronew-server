@@ -3,6 +3,12 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\ForgotPasswordRequest;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\ResetPasswordRequest;
+use App\Http\Requests\Auth\VerifyOTPRequest;
+use App\Http\Requests\Auth\VerifyResetCodeRequest;
 use App\Models\User;
 use App\Notifications\ForgotPasswordCodeNotification;
 use App\Notifications\VerificationCodeNotification;
@@ -31,24 +37,11 @@ class AuthController extends Controller
         $user->save();
     }
 
-    public function register(Request $request)
+    public function register(RegisterRequest $request)
     {
         // Handle user registration
         // Validate requests
-        $fields = $request->validate([
-            'first_name' => 'required|max:255',
-            'last_name' => 'required|max:255',
-            'email' => 'required|email|unique:users',
-            'password' => [
-                'required',
-                'confirmed',
-                Password::min(8) // require at least 8 characters
-                    ->letters()   // must contain letters
-                    ->numbers()   // must contain numbers
-                    ->mixedCase() // must contain uppercase + lowercase
-                    ->symbols(),  // must contain symbols
-            ],
-        ]);
+        $fields = $request->validated();
 
         // Create user
         $user = User::create([
@@ -76,14 +69,11 @@ class AuthController extends Controller
 
     }
 
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
         // Handle user login
         // Validate the requests
-        $request->validate([
-            'email' => 'required|email|exists:users',
-            'password' => 'required'
-        ]);
+        $request->validated();
 
         // Check the email first of the user
         $user = User::where('email', $request->email)->first();
@@ -122,10 +112,10 @@ class AuthController extends Controller
 
     }
 
-    public function verifyOtp(Request $request)
+    public function verifyOtp(VerifyOTPRequest $request)
     {
         // This must be called with the verification token (auth:sanctum)
-        $request->validate(['otp' => 'required|digits:6']);
+        $request->validated();
 
         // ensure token has ability 'verify'
         if (!$request->user()->tokenCan('verify')) {
@@ -180,11 +170,9 @@ class AuthController extends Controller
         return response()->json(['message' => 'A new verification code has been sent.'], 201);
     }
 
-    public function forgotPassword(Request $request)
+    public function forgotPassword(ForgotPasswordRequest $request)
     {
-        $request->validate([
-            'email' => 'required|email|exists:users,email',
-        ]);
+        $request->validated();
 
         // rate limit: 60s between requests
         $existing = DB::table('password_reset_tokens')->where('email', $request->email)->first();
@@ -209,12 +197,9 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Password reset code sent to your email.'], 200);
     }
-    public function verifyResetCode(Request $request)
+    public function verifyResetCode(VerifyResetCodeRequest $request)
     {
-        $request->validate([
-            'email' => 'required|email|exists:users,email',
-            'code'  => 'required|digits:6',
-        ]);
+        $request->validated();
 
         $record = DB::table('password_reset_tokens')->where('email', $request->email)->first();
 
@@ -248,21 +233,9 @@ class AuthController extends Controller
             'expires_in' => 15 * 60 // seconds
         ], 200);
     }
-    public function resetPassword(Request $request)
+    public function resetPassword(ResetPasswordRequest $request)
     {
-        $request->validate([
-            'email' => 'required|email|exists:users,email',
-            'reset_token' => 'required|string',
-            'password' => [
-                'required',
-                'confirmed',
-                Password::min(8)
-                    ->letters()
-                    ->numbers()
-                    ->mixedCase()
-                    ->symbols(),
-            ],
-        ]);
+        $request->validated();
 
         $record = DB::table('password_reset_tokens')->where('email', $request->email)->first();
 
