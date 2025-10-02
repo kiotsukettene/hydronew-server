@@ -4,10 +4,17 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Notifications\ForgotPasswordCodeNotification;
 use App\Notifications\VerificationCodeNotification;
+use DB;
+use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
+use Mail;
+use PhpParser\Node\Stmt\TryCatch;
 
 class AuthController extends Controller
 {
@@ -27,13 +34,20 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         // Handle user registration
-
         // Validate requests
         $fields = $request->validate([
             'first_name' => 'required|max:255',
             'last_name' => 'required|max:255',
             'email' => 'required|email|unique:users',
-            'password' => 'required|confirmed'
+            'password' => [
+                'required',
+                'confirmed',
+                Password::min(8) // require at least 8 characters
+                    ->letters()   // must contain letters
+                    ->numbers()   // must contain numbers
+                    ->mixedCase() // must contain uppercase + lowercase
+                    ->symbols(),  // must contain symbols
+            ],
         ]);
 
         // Create user
@@ -50,7 +64,7 @@ class AuthController extends Controller
         $user->notify(new VerificationCodeNotification($otp));
 
         // Handle access tokens
-        $token = $user->createToken('verification_token', ['verify'])->plainTextToken;
+        $token = $user->createToken($request->first_name)->plainTextToken;
 
         // Return the user and the token as response along with plain text token
         return response()->json([
@@ -59,12 +73,12 @@ class AuthController extends Controller
             'token' => $token,
             'needs_verification' => true
         ], 201);
+
     }
 
     public function login(Request $request)
     {
         // Handle user login
-
         // Validate the requests
         $request->validate([
             'email' => 'required|email|exists:users',
@@ -75,7 +89,7 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         // If the user does not exist or the password does not match
-        if (!$user || ! Hash::check($request->password, $user->password)) {
+        if (!$user || !Hash::check($request->password, $user->password)) {
             return [
                 'message' => 'The provided credentials are incorrect'
             ];
@@ -88,7 +102,7 @@ class AuthController extends Controller
             $user->notify(new VerificationCodeNotification($otp));
 
             $user->tokens()->where('name', '!=', '')->delete();
-            $verificationToken = $user->createToken('verification_token', ['verify'])->plainTextToken;
+            $verificationToken = $user->createToken($request->email)->plainTextToken;
 
             return response()->json([
                 'message' => 'Your email is not verified. Please check your email for the verification code.',
@@ -101,9 +115,11 @@ class AuthController extends Controller
         $token = $user->createToken($user->first_name);
 
         return [
+            'message' => "Login successfully!",
             'user' => $user,
             'token' => $token->plainTextToken
         ];
+
     }
 
     public function verifyOtp(Request $request)
@@ -112,17 +128,17 @@ class AuthController extends Controller
         $request->validate(['otp' => 'required|digits:6']);
 
         // ensure token has ability 'verify'
-        if (! $request->user()->tokenCan('verify')) {
+        if (!$request->user()->tokenCan('verify')) {
             return response()->json(['message' => 'Invalid token for verification.'], 403);
         }
 
         $user = $request->user();
 
-        if (! $user->verification_expires_at || $user->verification_expires_at->isPast()) {
+        if (!$user->verification_expires_at || $user->verification_expires_at->isPast()) {
             return response()->json(['message' => 'Verification code expired.'], 400);
         }
 
-        if (! Hash::check($request->otp, $user->verification_code)) {
+        if (!Hash::check($request->otp, $user->verification_code)) {
             return response()->json(['message' => 'Invalid verification code.'], 400);
         }
 
@@ -146,7 +162,7 @@ class AuthController extends Controller
     public function resendOtp(Request $request)
     {
         // Protect by auth:sanctum and ensure tokenCan('verify')
-        if (! $request->user()->tokenCan('verify')) {
+        if (!$request->user()->tokenCan('verify')) {
             return response()->json(['message' => 'Invalid token.'], 403);
         }
 
@@ -161,10 +177,119 @@ class AuthController extends Controller
         $this->storeOtpOnUser($user, $otp);
         $user->notify(new VerificationCodeNotification($otp));
 
-        return response()->json(['message' => 'A new verification code has been sent.']);
+        return response()->json(['message' => 'A new verification code has been sent.'], 201);
     }
 
+    public function forgotPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+        ]);
 
+        // rate limit: 60s between requests
+        $existing = DB::table('password_reset_tokens')->where('email', $request->email)->first();
+        if ($existing && Carbon::parse($existing->created_at)->diffInSeconds(now()) < 60) {
+            return response()->json(['message' => 'Please wait before requesting another code.'], 429);
+        }
+
+        $code = random_int(100000, 999999); // secure numeric OTP
+
+        // insert/replace hashed token
+        DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $request->email],
+            [
+                'token' => Hash::make((string)$code),
+                'created_at' => now(),
+            ]
+        );
+
+        // Send the code via your notification
+        $user = User::where('email', $request->email)->first();
+        $user->notify(new ForgotPasswordCodeNotification($code));
+
+        return response()->json(['message' => 'Password reset code sent to your email.'], 200);
+    }
+    public function verifyResetCode(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'code'  => 'required|digits:6',
+        ]);
+
+        $record = DB::table('password_reset_tokens')->where('email', $request->email)->first();
+
+        if (!$record) {
+            return response()->json(['message' => 'Invalid request.'], 400);
+        }
+
+        // check expiry of the code (15 minutes)
+        if (Carbon::parse($record->created_at)->addMinutes(15)->isPast()) {
+            return response()->json(['message' => 'Reset code expired.'], 400);
+        }
+
+        // verify the 6-digit code against the hashed token
+        if (!Hash::check($request->code, $record->token)) {
+            return response()->json(['message' => 'Invalid reset code.'], 400);
+        }
+
+        // generate a one-time reset token (long random string)
+        $resetToken = Str::random(64);
+
+        // replace the token in the DB with the HASH of the reset token and reset timestamp
+        DB::table('password_reset_tokens')->where('email', $request->email)->update([
+            'token' => Hash::make($resetToken),
+            'created_at' => now(), // reset the timer for the reset_token expiry window
+        ]);
+
+        // Return the reset token to the client (must be sent over HTTPS)
+        return response()->json([
+            'message' => 'Code verified. Use the returned reset_token to set a new password.',
+            'reset_token' => $resetToken,
+            'expires_in' => 15 * 60 // seconds
+        ], 200);
+    }
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'reset_token' => 'required|string',
+            'password' => [
+                'required',
+                'confirmed',
+                Password::min(8)
+                    ->letters()
+                    ->numbers()
+                    ->mixedCase()
+                    ->symbols(),
+            ],
+        ]);
+
+        $record = DB::table('password_reset_tokens')->where('email', $request->email)->first();
+
+        if (!$record) {
+            return response()->json(['message' => 'Invalid or expired reset token.'], 400);
+        }
+
+        // verify reset_token against stored hashed token
+        if (!Hash::check($request->reset_token, $record->token)) {
+            return response()->json(['message' => 'Invalid reset token.'], 400);
+        }
+
+        // check expiry (15 minutes from when reset_token was created)
+        if (Carbon::parse($record->created_at)->addMinutes(15)->isPast()) {
+            return response()->json(['message' => 'Reset token expired.'], 400);
+        }
+
+        // update the user's password
+        $user = User::where('email', $request->email)->first();
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        // delete the token record to prevent reuse
+        DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+
+        return response()->json(['message' => 'Password reset successfully.'], 200);
+    }
 
     public function logout(Request $request)
     {
