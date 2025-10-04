@@ -21,6 +21,10 @@ return new class extends Migration
             $table->string('profile_picture')->nullable();
             $table->text('address')->nullable();
             $table->boolean('first_time_login')->nullable()->default(true);
+            $table->dateTime('last_login_at')->nullable();
+            $table->string('verification_code')->nullable();
+            $table->timestamp('verification_expires_at')->nullable();
+            $table->timestamp('last_otp_sent_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });
