@@ -5,6 +5,15 @@ namespace Database\Seeders;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Database\Seeders\DevicesSeeder;
+use Database\Seeders\SensorsSeeder;
+use Database\Seeders\NotificationSeeder;
+use Database\Seeders\SensorReadingsSeeder;
+use Database\Seeders\HydroponicSetupSeeder;
+use Database\Seeders\HydroponicYieldSeeder;
+use Database\Seeders\TipsSuggestionsSeeder;
+use Database\Seeders\TreatmentStagesSeeder;
+use Database\Seeders\TreatmentReportsSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -15,9 +24,16 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        $this->call([
+            DevicesSeeder::class,
+            SensorsSeeder::class,
+            SensorReadingsSeeder::class,
+            TreatmentReportsSeeder::class,
+            TreatmentStagesSeeder::class,
+            HydroponicSetupSeeder::class,
+            HydroponicYieldSeeder::class,
+            TipsSuggestionsSeeder::class,
+            NotificationSeeder::class,
         ]);
     }
 }
