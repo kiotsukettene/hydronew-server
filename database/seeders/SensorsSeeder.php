@@ -19,6 +19,7 @@ class SensorsSeeder extends Seeder
             ['TDS', 'ppm'],
             ['temperature', '°C'],
             ['water_level', 'L'],
+            ['EC', 'µS/cm'],
             ['electric_current', 'V'],
         ];
 

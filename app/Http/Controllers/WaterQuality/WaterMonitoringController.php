@@ -12,7 +12,7 @@ class WaterMonitoringController extends Controller
     {
 
         // Required sensor types for water quality checking
-        $requiredTypes = ['ph', 'turbidity', 'TDS', 'water_level'];
+        $requiredTypes = ['ph', 'turbidity', 'TDS', 'water_level', 'EC'];
 
 
         // Get the latest readings by type by grouping by sensor_id
@@ -28,9 +28,37 @@ class WaterMonitoringController extends Controller
             ->get()
             ->keyBy('sensor.type');
 
+        $qualityMsg = $this->safeForPlants(
+            $readings->get('ph')?->reading_value,
+            $readings->get('TDS')?->reading_value,
+            $readings->get('turbidity')?->reading_value,
+            // $readings->get('EC')?->reading_value
+        );
+
         return response()->json([
             'status' => 'success',
             'data' => $readings,
+            'quality' => $qualityMsg
         ]);
+    }
+
+    protected function safeForPlants($ph, $tds, $turbidity)
+    {
+        if (is_null($ph) || is_null($tds) || is_null($turbidity)) {
+            return 'Unknown';
+        }
+
+        // Check each condition individually
+        $isPhSafe = ($ph >= 6.5 && $ph <= 8.0);
+        $isTdsSafe = ($tds >= 700 && $tds <= 1400);
+        $isTurbiditySafe = ($turbidity <= 5);
+        // $isEcSafe = ($ec >= 1.2 && $ec <= 2.5); // Corrected range
+
+        // Check if all conditions are true
+        if ($isPhSafe && $isTdsSafe && $isTurbiditySafe) {
+            return 'Safe for plants';
+        }
+
+        return 'Unsafe for plants';
     }
 }
