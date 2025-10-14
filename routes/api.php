@@ -18,7 +18,7 @@ Route::post('/forgot-password', [PasswordResetController::class, 'forgotPassword
 Route::post('/verify-reset-code', [PasswordResetController::class, 'verifyResetCode']);
 Route::post('/resend-reset-code', [PasswordResetController::class, 'resendResetCode']);
 Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
-Route::get('/water-monitoring', [WaterMonitoringController::class, 'index']);
+
 
 
 
@@ -34,4 +34,5 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     // Routes that require both Sanctum auth and email verification
     Route::get('/dashboard', [DashboardController::class, 'index']);
+    Route::get('/water-monitoring', [WaterMonitoringController::class, 'index']);
 });
