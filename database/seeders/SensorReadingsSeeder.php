@@ -28,6 +28,7 @@ class SensorReadingsSeeder extends Seeder
                         'temperature' => number_format(rand(200, 300) / 10, 1),
                         'water_level' => rand(60, 100),
                         'electric_current' => number_format(rand(100, 200) / 10, 1),
+                        'EC' => number_format(rand(12, 25) / 10, 1),
                         default => rand(1, 100)
                     },
                     'reading_time' => Carbon::now()->subMinutes(rand(1, 100)),
