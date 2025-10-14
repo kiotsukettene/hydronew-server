@@ -12,14 +12,14 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * Class Sensor
- * 
+ *
  * @property int $id
  * @property int $device_id
  * @property string $type
  * @property string $unit
  * @property Carbon $created_at
  * @property Carbon $updated_at
- * 
+ *
  * @property Device $device
  * @property Collection|SensorReading[] $sensor_readings
  *
@@ -27,25 +27,25 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Sensor extends Model
 {
-	protected $table = 'sensors';
+    protected $table = 'sensors';
 
-	protected $casts = [
-		'device_id' => 'int'
-	];
+    protected $casts = [
+        'device_id' => 'int'
+    ];
 
-	protected $fillable = [
-		'device_id',
-		'type',
-		'unit'
-	];
+    protected $fillable = [
+        'device_id',
+        'type',
+        'unit'
+    ];
 
-	public function device()
-	{
-		return $this->belongsTo(Device::class);
-	}
+    public function device()
+    {
+        return $this->belongsTo(Device::class);
+    }
 
-	public function sensor_readings()
-	{
-		return $this->hasMany(SensorReading::class);
-	}
+    public function sensor_readings()
+    {
+        return $this->hasMany(SensorReading::class, 'sensor_id', 'id');
+    }
 }
