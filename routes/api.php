@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
+use App\Http\Controllers\Dashboard\DashboardController;
+use App\Http\Controllers\WaterQuality\WaterMonitoringController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -17,6 +19,10 @@ Route::post('/verify-reset-code', [PasswordResetController::class, 'verifyResetC
 Route::post('/resend-reset-code', [PasswordResetController::class, 'resendResetCode']);
 Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
 
+Route::get('/water-monitoring', [WaterMonitoringController::class, 'index']);
+
+
+
 
 Route::middleware('auth:sanctum')->group(function () {
     // Protected routes go here
@@ -29,7 +35,5 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     // Routes that require both Sanctum auth and email verification
-    Route::get('/dashboard', function () {
-        return response()->json(['message' => 'Welcome to the dashboard!']);
-    });
+    Route::get('/dashboard', [DashboardController::class, 'index']);
 });
