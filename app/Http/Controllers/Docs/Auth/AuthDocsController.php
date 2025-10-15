@@ -24,7 +24,8 @@ use Illuminate\Http\Request;
  *             @OA\Property(property="first_name", type="string", example="Momo"),
  *             @OA\Property(property="last_name", type="string", example="Revillame"),
  *             @OA\Property(property="email", type="string", example="momo@example.com"),
- *             @OA\Property(property="password", type="string", example="Password@123")
+ *             @OA\Property(property="password", type="string", example="Password@123"),
+ *            @OA\Property(property="password_confirmation", type="string", example="Password@123")
  *         )
  *     ),
  *     @OA\Response(response=201, description="User registered successfully."),
