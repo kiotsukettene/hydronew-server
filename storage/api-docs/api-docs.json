@@ -184,6 +184,183 @@
                     }
                 ]
             }
+        },
+        "/api/v1/forgot-password": {
+            "post": {
+                "tags": [
+                    "Password Reset"
+                ],
+                "summary": "Send password reset code to email",
+                "description": "Sends a 6-digit verification code to the user's email for password reset.",
+                "operationId": "f32e6cd7fc0114012e2c3f9087114f2a",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "momo@example.com"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password reset code sent to email"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "429": {
+                        "description": "Too many requests (wait before requesting again)"
+                    }
+                }
+            }
+        },
+        "/api/v1/verify-reset-code": {
+            "post": {
+                "tags": [
+                    "Password Reset"
+                ],
+                "summary": "Verify reset code",
+                "description": "Verifies the 6-digit reset code sent to the user's email and returns a temporary reset token.",
+                "operationId": "ff7599b69186b8e9c430a3e44e4a144c",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "code"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "momo@example.com"
+                                    },
+                                    "code": {
+                                        "type": "string",
+                                        "example": "123456"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Code verified successfully, reset token returned"
+                    },
+                    "400": {
+                        "description": "Invalid or expired reset code"
+                    }
+                }
+            }
+        },
+        "/api/v1/resend-reset-code": {
+            "post": {
+                "tags": [
+                    "Password Reset"
+                ],
+                "summary": "Resend password reset code",
+                "description": "Resends a new 6-digit password reset code to the user's email. Can only be used once every 60 seconds.",
+                "operationId": "b84062d4187f7a7778339dc9393e3b5e",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "momo@example.com"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "New reset code sent successfully"
+                    },
+                    "429": {
+                        "description": "Please wait before requesting another code"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/api/v1/reset-password": {
+            "post": {
+                "tags": [
+                    "Password Reset"
+                ],
+                "summary": "Reset password",
+                "description": "Sets a new password for the user using a valid reset token obtained from verify-reset-code endpoint.",
+                "operationId": "bff4339c05df2e29fb2cf554d2fd24b3",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "reset_token",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "momo@example.com"
+                                    },
+                                    "reset_token": {
+                                        "type": "string",
+                                        "example": "Xyz12345ResetTokenExample..."
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "NewPassword@123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password reset successfully"
+                    },
+                    "400": {
+                        "description": "Invalid or expired reset token"
+                    },
+                    "403": {
+                        "description": "Reset token expired or invalid"
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -202,6 +379,10 @@
         {
             "name": "Authentication",
             "description": "Authentication"
+        },
+        {
+            "name": "Password Reset",
+            "description": "Password Reset"
         }
     ]
 }
