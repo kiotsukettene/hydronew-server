@@ -6,6 +6,7 @@ use App\Http\Controllers\Dashboard\DashboardController;
 use App\Http\Controllers\WaterQuality\WaterMonitoringController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Devices\DeviceController;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -36,4 +37,9 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     // Routes that require both Sanctum auth and email verification
     Route::get('v1/dashboard', [DashboardController::class, 'index']);
+
+    Route::get('v1/devices', [DeviceController::class, 'index']);
+
+    Route::post('v1/devices/connect', [DeviceController::class, 'connectDevice']);
+    Route::post('v1/devices/{device}/disconnect', [DeviceController::class, 'disconnectDevice']);
 });
