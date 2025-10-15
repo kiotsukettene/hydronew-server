@@ -42,4 +42,6 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
 
     Route::post('v1/devices/connect', [DeviceController::class, 'connectDevice']);
     Route::post('v1/devices/{device}/disconnect', [DeviceController::class, 'disconnectDevice']);
+
+    Route::get('v1/water-monitoring', [WaterMonitoringController::class, 'index']);
 });
