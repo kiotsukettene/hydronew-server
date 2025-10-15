@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+
+    
     protected function generateOtp(): string
     {
         return (string) random_int(100000, 999999); // 6 digit secure random code
@@ -27,6 +29,7 @@ class AuthController extends Controller
         $user->last_otp_sent_at = now();
         $user->save();
     }
+
 
     public function register(RegisterRequest $request)
     {
@@ -101,6 +104,7 @@ class AuthController extends Controller
         ];
     }
 
+
     public function verifyOtp(VerifyOTPRequest $request)
     {
         // This must be called with the verification token (auth:sanctum)
@@ -149,6 +153,7 @@ class AuthController extends Controller
         ]);
     }
 
+
     public function resendOtp(Request $request)
     {
         // Protect by auth:sanctum and ensure tokenCan('verify')
@@ -173,6 +178,7 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'A new verification code has been sent.'], 201);
     }
+
 
     public function logout(Request $request)
     {
