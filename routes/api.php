@@ -12,14 +12,14 @@ use Illuminate\Support\Facades\Route;
 // })->middleware('auth:sanctum');
 
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/forgot-password', [PasswordResetController::class, 'forgotPassword']);
-Route::post('/verify-reset-code', [PasswordResetController::class, 'verifyResetCode']);
-Route::post('/resend-reset-code', [PasswordResetController::class, 'resendResetCode']);
-Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
+Route::post('v1/register', [AuthController::class, 'register']);
+Route::post('v1/login', [AuthController::class, 'login']);
+Route::post('v1/forgot-password', [PasswordResetController::class, 'forgotPassword']);
+Route::post('v1/verify-reset-code', [PasswordResetController::class, 'verifyResetCode']);
+Route::post('v1/resend-reset-code', [PasswordResetController::class, 'resendResetCode']);
+Route::post('v1/reset-password', [PasswordResetController::class, 'resetPassword']);
 
-Route::get('/water-monitoring', [WaterMonitoringController::class, 'index']);
+Route::get('v1/water-monitoring', [WaterMonitoringController::class, 'index']);
 
 
 
@@ -27,13 +27,13 @@ Route::get('/water-monitoring', [WaterMonitoringController::class, 'index']);
 Route::middleware('auth:sanctum')->group(function () {
     // Protected routes go here
 
-    Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
-    Route::post('/resend-otp', [AuthController::class, 'resendOtp'])->middleware('throttle:3,1'); // Limit to 3 requests per minute
+    Route::post('v1/verify-otp', [AuthController::class, 'verifyOtp']);
+    Route::post('v1/resend-otp', [AuthController::class, 'resendOtp'])->middleware('throttle:3,1'); // Limit to 3 requests per minute
 
-    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('v1/logout', [AuthController::class, 'logout']);
 });
 
 Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     // Routes that require both Sanctum auth and email verification
-    Route::get('/dashboard', [DashboardController::class, 'index']);
+    Route::get('v1/dashboard', [DashboardController::class, 'index']);
 });
