@@ -39,6 +39,10 @@
                                     "password": {
                                         "type": "string",
                                         "example": "Password@123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "example": "Password@123"
                                     }
                                 },
                                 "type": "object"

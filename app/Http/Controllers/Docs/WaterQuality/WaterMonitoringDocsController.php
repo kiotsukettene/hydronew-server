@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 
 /**
      * @OA\Get(
-     *     path="/api/water-quality",
+     *     path="/api/water-monitoring",
      *     summary="Get latest water quality readings",
      *     description="Fetches the latest readings for pH, TDS, turbidity, water level, and EC sensors, then evaluates if the water is safe for plants.",
      *     operationId="getWaterQuality",
