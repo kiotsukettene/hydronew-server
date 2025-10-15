@@ -361,6 +361,68 @@
                     }
                 }
             }
+        },
+        "/api/v1/dashboard": {
+            "get": {
+                "tags": [
+                    "Dashboard"
+                ],
+                "summary": "Get latest pH level and user greeting",
+                "description": "Retrieves the most recent pH sensor reading and its status for the authenticated user.",
+                "operationId": "bd63fc42d3e050ed07e66bab172398c7",
+                "responses": {
+                    "200": {
+                        "description": "Latest pH reading fetched successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "user": {
+                                            "type": "string",
+                                            "example": "Hello, Marianne!"
+                                        },
+                                        "ph_level": {
+                                            "properties": {
+                                                "value": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 6.8
+                                                },
+                                                "unit": {
+                                                    "type": "string",
+                                                    "example": "pH"
+                                                },
+                                                "time": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2025-10-16T14:30:00Z"
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "Optimal"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No pH sensor found"
+                    },
+                    "401": {
+                        "description": "Unauthorized (missing or invalid token)"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -383,6 +445,10 @@
         {
             "name": "Password Reset",
             "description": "Password Reset"
+        },
+        {
+            "name": "Dashboard",
+            "description": "Dashboard"
         }
     ]
 }
