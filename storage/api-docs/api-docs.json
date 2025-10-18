@@ -428,7 +428,216 @@
                 ]
             }
         },
-        "/api/water-quality": {
+        "/api/devices": {
+            "get": {
+                "tags": [
+                    "Devices"
+                ],
+                "summary": "List all associated devices for the authenticated user",
+                "description": "Retrieves a list of devices owned by the authenticated user.",
+                "operationId": "0fe04e06b8b18c30dec565309ef76476",
+                "responses": {
+                    "200": {
+                        "description": "Devices retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "devices": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "HydroNew Device A-1"
+                                                    },
+                                                    "serial_number": {
+                                                        "type": "string",
+                                                        "example": "MFC-1204328HD0B45"
+                                                    },
+                                                    "status": {
+                                                        "type": "string",
+                                                        "example": "connected"
+                                                    },
+                                                    "created_at": {
+                                                        "type": "string",
+                                                        "format": "date-time"
+                                                    },
+                                                    "updated_at": {
+                                                        "type": "string",
+                                                        "format": "date-time"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No devices found"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/devices/connect": {
+            "post": {
+                "tags": [
+                    "Devices"
+                ],
+                "summary": "Connect a device to the authenticated user",
+                "description": "Connects a device using its serial number to the logged-in user if it's not already connected.",
+                "operationId": "6b52a8988a438bbcab1de03d595aba38",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "serial_number"
+                                ],
+                                "properties": {
+                                    "serial_number": {
+                                        "type": "string",
+                                        "example": "MFC-1204328HD0B45"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Device connected successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Device connected successfully."
+                                        },
+                                        "device": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "serial_number": {
+                                                    "type": "string",
+                                                    "example": "MFC-1204328HD0B45"
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "connected"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Device not found"
+                    },
+                    "409": {
+                        "description": "Device already connected to another user"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/devices/{device}/disconnect": {
+            "post": {
+                "tags": [
+                    "Devices"
+                ],
+                "summary": "Disconnect a device from the authenticated user",
+                "description": "Sets the device status to 'not connected'. Only the device owner can disconnect it.",
+                "operationId": "834b6b929b3369f3f3f05201b3b12187",
+                "parameters": [
+                    {
+                        "name": "device",
+                        "in": "path",
+                        "description": "Device ID or serial number to disconnect",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "MFC-1204328HD0B45"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Device disconnected successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Device disconnected successfully."
+                                        },
+                                        "device": {
+                                            "properties": {
+                                                "serial_number": {
+                                                    "type": "string",
+                                                    "example": "MFC-1204328HD0B45"
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "not connected"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "You are not authorized to disconnect this device"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/water-monitoring": {
             "get": {
                 "tags": [
                     "Water Quality"
@@ -528,6 +737,10 @@
         {
             "name": "Dashboard",
             "description": "Dashboard"
+        },
+        {
+            "name": "Devices",
+            "description": "Devices"
         },
         {
             "name": "Water Quality",

@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * Class Device
- * 
+ *
  * @property int $id
  * @property int $user_id
  * @property string $name
@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $status
  * @property Carbon $created_at
  * @property Carbon $updated_at
- * 
+ *
  * @property User $user
  * @property Collection|Notification[] $notifications
  * @property Collection|Sensor[] $sensors
@@ -47,6 +47,11 @@ class Device extends Model
 	{
 		return $this->belongsTo(User::class);
 	}
+
+    public function getRouteKeyName()
+    {
+    return 'serial_number';
+    }
 
 	public function notifications()
 	{

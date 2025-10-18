@@ -12,12 +12,6 @@ use Illuminate\Http\Request;
  * )
  */
 
-/**
- * @OA\Tag(
- *     name="Dashboard",
- *     description="Endpoints related to the dashboard overview and sensor readings."
- * )
- */
 
 /**
  * @OA\Get(
