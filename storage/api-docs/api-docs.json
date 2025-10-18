@@ -428,14 +428,14 @@
                 ]
             }
         },
-        "/api/devices": {
+        "/api/v1/devices": {
             "get": {
                 "tags": [
                     "Devices"
                 ],
                 "summary": "List all associated devices for the authenticated user",
                 "description": "Retrieves a list of devices owned by the authenticated user.",
-                "operationId": "0fe04e06b8b18c30dec565309ef76476",
+                "operationId": "acc50b5ce2ff2709e2590ace9ff20ac7",
                 "responses": {
                     "200": {
                         "description": "Devices retrieved successfully",
@@ -495,14 +495,14 @@
                 ]
             }
         },
-        "/api/devices/connect": {
+        "/api/v1/devices/connect": {
             "post": {
                 "tags": [
                     "Devices"
                 ],
                 "summary": "Connect a device to the authenticated user",
                 "description": "Connects a device using its serial number to the logged-in user if it's not already connected.",
-                "operationId": "6b52a8988a438bbcab1de03d595aba38",
+                "operationId": "372b60420b3bea7a02c2f31cec9f3571",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -573,14 +573,14 @@
                 ]
             }
         },
-        "/api/devices/{device}/disconnect": {
+        "/api/v1/devices/{device}/disconnect": {
             "post": {
                 "tags": [
                     "Devices"
                 ],
                 "summary": "Disconnect a device from the authenticated user",
                 "description": "Sets the device status to 'not connected'. Only the device owner can disconnect it.",
-                "operationId": "834b6b929b3369f3f3f05201b3b12187",
+                "operationId": "b9f68649a66717229c8ed42a3ae878c9",
                 "parameters": [
                     {
                         "name": "device",
