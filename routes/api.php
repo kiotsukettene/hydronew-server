@@ -20,7 +20,6 @@ Route::post('v1/verify-reset-code', [PasswordResetController::class, 'verifyRese
 Route::post('v1/resend-reset-code', [PasswordResetController::class, 'resendResetCode']);
 Route::post('v1/reset-password', [PasswordResetController::class, 'resetPassword']);
 
-Route::get('v1/water-monitoring', [WaterMonitoringController::class, 'index']);
 
 
 
