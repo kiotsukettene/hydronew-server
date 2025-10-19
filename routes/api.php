@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountSettings\AccountController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Dashboard\DashboardController;
@@ -43,4 +44,6 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::post('v1/devices/{device}/disconnect', [DeviceController::class, 'disconnectDevice']);
 
     Route::get('v1/water-monitoring', [WaterMonitoringController::class, 'index']);
+
+    Route::get('v1/manage-account', [AccountController::class, 'index']);
 });
