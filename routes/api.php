@@ -39,11 +39,12 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('v1/dashboard', [DashboardController::class, 'index']);
 
     Route::get('v1/devices', [DeviceController::class, 'index']);
-
     Route::post('v1/devices/connect', [DeviceController::class, 'connectDevice']);
     Route::post('v1/devices/{device}/disconnect', [DeviceController::class, 'disconnectDevice']);
 
     Route::get('v1/water-monitoring', [WaterMonitoringController::class, 'index']);
 
     Route::get('v1/manage-account', [AccountController::class, 'index']);
+    Route::put('v1/manage-account/{user}', [AccountController::class, 'update']);
+    Route::put('v1/manage-account/{user}/update-password', [AccountController::class, 'updatePassword']);
 });
