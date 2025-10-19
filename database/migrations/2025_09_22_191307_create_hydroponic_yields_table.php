@@ -14,13 +14,15 @@ return new class extends Migration
         Schema::create('hydroponic_yields', function (Blueprint $table) {
             $table->bigInteger('id', true);
             $table->bigInteger('hydroponic_setup_id')->index('hydroponic_setup_id');
-            $table->string('plant_type', 150);
-            $table->enum('growth_stage', ['seedling', 'growing', 'harvest-ready'])->nullable()->default('seedling');
             $table->enum('harvest_status', ['not_harvested', 'harvested', 'partial'])->nullable()->default('not_harvested');
-            $table->integer('plant_age_days');
+            $table->enum('growth_stage', ['seedling', 'vegetative', 'flowering', 'harvest-ready'])->nullable()->default('seedling');
             $table->enum('health_status', ['good', 'moderate', 'poor']);
-            $table->date('estimated_harvest_date')->nullable();
-            $table->timestamp('created_at')->useCurrent();
+            $table->decimal('predicted_yield', 10, 2)->nullable();
+            $table->decimal('actual_yield', 10, 2)->nullable();
+            $table->dateTime('harvest_date')->nullable();
+            $table->boolean('system_generated')->default(true);
+            $table->text('notes')->nullable();
+            $table->timestamps();
         });
     }
 

@@ -14,10 +14,27 @@ return new class extends Migration
         Schema::create('hydroponic_setup', function (Blueprint $table) {
             $table->bigInteger('id', true);
             $table->bigInteger('user_id');
+
+            // Crop and setup configuration
+            $table->string('crop_name', 100);
+            $table->integer('number_of_crops')->default(0);
             $table->enum('bed_size', ['small', 'medium', 'large']);
-            $table->string('water_amount', 50);
+            $table->json('pump_config')->nullable();
+            $table->string('nutrient_solution', 255)->nullable();
+
+            // Ideal parameter ranges
+            $table->decimal('target_ph_min', 4, 2);
+            $table->decimal('target_ph_max', 4, 2);
+            $table->decimal('target_tds_min', 6, 2);
+            $table->decimal('target_tds_max', 6, 2);
+
+            // Other details
+            $table->string('water_amount', 50)->nullable();
             $table->dateTime('setup_date')->nullable();
             $table->enum('status', ['active', 'inactive', 'maintenance'])->nullable()->default('active');
+
+
+            $table->timestamps();
         });
     }
 
