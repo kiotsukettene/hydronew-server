@@ -80,4 +80,9 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(Notification::class);
     }
+
+    public function hydroponic_setups()
+    {
+        return $this->hasMany(HydroponicSetup::class);
+    }
 }
