@@ -53,6 +53,6 @@ class HydroponicYield extends Model
 
     public function hydroponic_setup()
     {
-        return $this->belongsTo(HydroponicSetup::class);
+        return $this->belongsTo(HydroponicSetup::class, 'id');
     }
 }
