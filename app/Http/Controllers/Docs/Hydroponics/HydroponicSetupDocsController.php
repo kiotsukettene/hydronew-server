@@ -51,9 +51,6 @@ use Illuminate\Http\Request;
  *     ),
  *     @OA\Response(response=401, description="Unauthorized")
  * )
- */
-
-/**
  * @OA\Post(
  *     path="/api/v1/hydroponic-setups",
  *     summary="Create a new hydroponic setup",

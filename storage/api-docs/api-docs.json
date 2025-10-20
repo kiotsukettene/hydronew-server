@@ -968,6 +968,250 @@
                 ]
             }
         },
+        "/api/v1/hydroponic-setups": {
+            "get": {
+                "tags": [
+                    "Hydroponic Setup"
+                ],
+                "summary": "Get all hydroponic setups for the authenticated user",
+                "description": "Fetches a paginated list of hydroponic setups owned by the logged-in user.",
+                "operationId": "getHydroponicSetups",
+                "responses": {
+                    "200": {
+                        "description": "List of hydroponic setups",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 3
+                                                            },
+                                                            "crop_name": {
+                                                                "type": "string",
+                                                                "example": "Lettuce"
+                                                            },
+                                                            "number_of_crops": {
+                                                                "type": "integer",
+                                                                "example": 50
+                                                            },
+                                                            "bed_size": {
+                                                                "type": "string",
+                                                                "example": "medium"
+                                                            },
+                                                            "nutrient_solution": {
+                                                                "type": "string",
+                                                                "example": "AB Mix"
+                                                            },
+                                                            "target_ph_min": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 5.5
+                                                            },
+                                                            "target_ph_max": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 6.5
+                                                            },
+                                                            "target_tds_min": {
+                                                                "type": "integer",
+                                                                "example": 600
+                                                            },
+                                                            "target_tds_max": {
+                                                                "type": "integer",
+                                                                "example": 800
+                                                            },
+                                                            "water_amount": {
+                                                                "type": "string",
+                                                                "example": "100L"
+                                                            },
+                                                            "setup_date": {
+                                                                "type": "string",
+                                                                "format": "date-time",
+                                                                "example": "2025-10-21T04:00:00Z"
+                                                            },
+                                                            "status": {
+                                                                "type": "string",
+                                                                "example": "active"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 2
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Hydroponic Setup"
+                ],
+                "summary": "Create a new hydroponic setup",
+                "description": "Creates a new hydroponic setup for the authenticated user and automatically generates an initial yield record.",
+                "operationId": "createHydroponicSetup",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "crop_name",
+                                    "number_of_crops",
+                                    "bed_size",
+                                    "nutrient_solution",
+                                    "target_ph_min",
+                                    "target_ph_max",
+                                    "target_tds_min",
+                                    "target_tds_max",
+                                    "water_amount"
+                                ],
+                                "properties": {
+                                    "crop_name": {
+                                        "type": "string",
+                                        "example": "Lettuce"
+                                    },
+                                    "number_of_crops": {
+                                        "type": "integer",
+                                        "example": 50
+                                    },
+                                    "bed_size": {
+                                        "type": "string",
+                                        "enum": [
+                                            "small",
+                                            "medium",
+                                            "large"
+                                        ],
+                                        "example": "medium"
+                                    },
+                                    "pump_config": {
+                                        "type": "object",
+                                        "example": {
+                                            "pumpA": true,
+                                            "pumpB": false
+                                        }
+                                    },
+                                    "nutrient_solution": {
+                                        "type": "string",
+                                        "example": "AB Mix"
+                                    },
+                                    "target_ph_min": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 5.5
+                                    },
+                                    "target_ph_max": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 6.5
+                                    },
+                                    "target_tds_min": {
+                                        "type": "integer",
+                                        "example": 600
+                                    },
+                                    "target_tds_max": {
+                                        "type": "integer",
+                                        "example": 800
+                                    },
+                                    "water_amount": {
+                                        "type": "string",
+                                        "example": "100L"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Hydroponic setup created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Hydroponic setup created successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "crop_name": {
+                                                    "type": "string",
+                                                    "example": "Lettuce"
+                                                },
+                                                "bed_size": {
+                                                    "type": "string",
+                                                    "example": "medium"
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "active"
+                                                },
+                                                "setup_date": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2025-10-21T04:00:00Z"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/v1/water-monitoring": {
             "get": {
                 "tags": [
@@ -1076,6 +1320,10 @@
         {
             "name": "Devices",
             "description": "Devices"
+        },
+        {
+            "name": "Hydroponic Setup",
+            "description": "Hydroponic Setup"
         },
         {
             "name": "Water Quality",
