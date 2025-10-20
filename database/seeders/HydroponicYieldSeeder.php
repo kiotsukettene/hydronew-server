@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -13,8 +14,9 @@ class HydroponicYieldSeeder extends Seeder
      */
     public function run(): void
     {
+        $hydroponicSetup = HydroponicSetup::first();
         HydroponicYield::create([
-            'hydroponic_setup_id' => 1,
+            'hydroponic_setup_id' => $hydroponicSetup->id,
             'harvest_status' => 'not_harvested',
             'growth_stage' => 'seedling',
             'health_status' => 'good',

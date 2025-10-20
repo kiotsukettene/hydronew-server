@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Device;
 use App\Models\Sensor;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -13,6 +14,7 @@ class SensorsSeeder extends Seeder
      */
     public function run(): void
     {
+        $device = Device::first();
         $types = [
             ['ph', 'pH'],
             ['turbidity', 'NTU'],
@@ -26,7 +28,7 @@ class SensorsSeeder extends Seeder
 
         foreach ($types as [$type, $unit]) {
             Sensor::create([
-                'device_id' => 1,
+                'device_id' => $device->id,
                 'type' => $type,
                 'unit' => $unit,
             ]);
