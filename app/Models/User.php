@@ -85,4 +85,9 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(HydroponicSetup::class);
     }
+
+    public function loginHistories()
+    {
+        return $this->hasMany(LoginHistory::class);
+    }
 }
