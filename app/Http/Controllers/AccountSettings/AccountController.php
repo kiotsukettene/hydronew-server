@@ -77,4 +77,38 @@ class AccountController extends Controller
 
         return response()->json(['message' => 'Password updated successfully.']);
     }
+
 }
+
+
+// Account Functions
+
+// index -> view of account
+// -> First Name + Last Name
+// -> Email
+// -> Owned Devices
+// -> Electric Volts (for MFC)
+// -> Predicted Yield (ig)
+
+// Manage Account
+
+// update -> update null fields
+
+// -> First Name
+// -> Last Name
+// -> Address
+// -> Profile Picture
+
+// Change password
+
+// updatePassword -> update password
+
+
+// Login History
+
+// loginHistory -> check login history of the user
+
+// Permissions
+
+
+// appPermission -> updates notification, file storage, restore settings
