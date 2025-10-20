@@ -20,7 +20,7 @@ class UsersSeeder extends Seeder
                 'first_name' => 'Momo',
                 'last_name' => 'Revillame',
                 'email_verified_at' => now(),
-                'password' => bcrypt('password123'), // change as needed
+                'password' => bcrypt('Momorevillame@24'), // change as needed
             ]
         );
     }

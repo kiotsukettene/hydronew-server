@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\HydroponicSetup;
+use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -13,8 +14,9 @@ class HydroponicSetupSeeder extends Seeder
      */
     public function run(): void
     {
+        $user = User::first();
         HydroponicSetup::create([
-            'user_id' => 1,
+            'user_id' => $user->id,
             'crop_name' => 'Lettuce',
             'number_of_crops' => 30,
             'bed_size' => 'medium',
