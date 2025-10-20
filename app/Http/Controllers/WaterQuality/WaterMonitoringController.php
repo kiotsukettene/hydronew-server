@@ -32,7 +32,7 @@ class WaterMonitoringController extends Controller
             $readings->get('ph')?->reading_value,
             $readings->get('TDS')?->reading_value,
             $readings->get('turbidity')?->reading_value,
-            // $readings->get('EC')?->reading_value
+            $readings->get('EC')?->reading_value
         );
 
         return response()->json([
@@ -42,9 +42,9 @@ class WaterMonitoringController extends Controller
         ]);
     }
 
-    protected function safeForPlants($ph, $tds, $turbidity)
+    protected function safeForPlants($ph, $tds, $turbidity, $ec)
     {
-        if (is_null($ph) || is_null($tds) || is_null($turbidity)) {
+        if (is_null($ph) || is_null($tds) || is_null($turbidity) || is_null($ec)) {
             return 'Unknown';
         }
 
@@ -52,10 +52,10 @@ class WaterMonitoringController extends Controller
         $isPhSafe = ($ph >= 6.5 && $ph <= 8.0);
         $isTdsSafe = ($tds >= 700 && $tds <= 1400);
         $isTurbiditySafe = ($turbidity <= 5);
-        // $isEcSafe = ($ec >= 1.2 && $ec <= 2.5); // Corrected range
+        $isEcSafe = ($ec >= 1.2 && $ec <= 2.5); // Corrected range
 
         // Check if all conditions are true
-        if ($isPhSafe && $isTdsSafe && $isTurbiditySafe) {
+        if ($isPhSafe && $isTdsSafe && $isTurbiditySafe && $isEcSafe) {
             return 'Safe for plants';
         }
 
