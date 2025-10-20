@@ -94,14 +94,14 @@ class AuthController extends Controller
                 'needs_verification' => true
             ], 200);
         }
-        // If matched, create a token for the user
-        $token = $user->createToken('auth_token');
 
         LoginHistory::create([
             'user_id' => $user->id,
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);
+        // If matched, create a token for the user
+        $token = $user->createToken('auth_token');
 
         return [
             'message' => "Login successfully!",
@@ -141,6 +141,12 @@ class AuthController extends Controller
         if (!Hash::check($request->otp, $user->verification_code)) {
             return response()->json(['message' => 'Invalid verification code.'], 400);
         }
+
+        LoginHistory::create([
+            'user_id' => $user->id,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
 
         // Mark email as verified
         $user->email_verified_at = now();
