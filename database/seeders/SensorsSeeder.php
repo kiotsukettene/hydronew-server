@@ -21,7 +21,7 @@ class SensorsSeeder extends Seeder
             ['tds', 'ppm'],
             ['temperature', '°C'],
             ['water_level', 'L'],
-            ['humidity', 'RH'],
+            ['humidity', '%'],
             ['ec', 'µS/cm'],
             ['electric_current', 'V'],
         ];

@@ -26,10 +26,10 @@ use Illuminate\Database\Eloquent\Model;
  */
 class HydroponicSetup extends Model
 {
-	protected $table = 'hydroponic_setup';
-	public $timestamps = false;
+    protected $table = 'hydroponic_setup';
+    public $timestamps = false;
 
-	protected $casts = [
+    protected $casts = [
         'user_id' => 'integer',
         'number_of_crops' => 'integer',
         'pump_config' => 'array',
@@ -38,9 +38,9 @@ class HydroponicSetup extends Model
         'target_tds_min' => 'float',
         'target_tds_max' => 'float',
         'setup_date' => 'datetime',
-	];
+    ];
 
-	protected $fillable = [
+    protected $fillable = [
         'user_id',
         'crop_name',
         'number_of_crops',
@@ -54,12 +54,12 @@ class HydroponicSetup extends Model
         'water_amount',
         'setup_date',
         'status',
-	];
+    ];
 
-	public function hydroponic_yields()
-	{
-		return $this->hasMany(HydroponicYield::class);
-	}
+    public function hydroponic_yields()
+    {
+        return $this->hasMany(HydroponicYield::class, 'hydroponic_setup_id');
+    }
 
     public function user()
     {
