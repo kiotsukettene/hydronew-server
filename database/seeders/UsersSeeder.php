@@ -18,6 +18,7 @@ class UsersSeeder extends Seeder
             'first_name' => 'momo',
             'last_name' => 'revillame',
             'email' => 'kiotsuketteneloreto@gmail.com',
+            'email_verified_at' => now(),
             'password' => Hash::make('Momorevillame@24'),
         ]);
     }

@@ -5,6 +5,337 @@
         "version": "1.0.0"
     },
     "paths": {
+        "/api/v1/manage-account": {
+            "get": {
+                "tags": [
+                    "Account Settings"
+                ],
+                "summary": "Retrieve account information",
+                "description": "Fetch the authenticated user's account details, including full name, email, and owned device count.",
+                "operationId": "e07f25d3a0133f3c0bf81806a9bbdb2d",
+                "responses": {
+                    "200": {
+                        "description": "Account details retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "full_name": {
+                                                    "type": "string",
+                                                    "example": "Momo Revillame"
+                                                },
+                                                "email": {
+                                                    "type": "string",
+                                                    "example": "momo@example.com"
+                                                },
+                                                "owned_devices_count": {
+                                                    "type": "integer",
+                                                    "example": 5
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/manage-account/{user}": {
+            "put": {
+                "tags": [
+                    "Account Settings"
+                ],
+                "summary": "Update account information",
+                "description": "Allows the authenticated user to update their personal information and profile picture.",
+                "operationId": "ce2d2e54893346f29a1234bbacd39b44",
+                "parameters": [
+                    {
+                        "name": "user",
+                        "in": "path",
+                        "description": "User ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "first_name",
+                                    "last_name"
+                                ],
+                                "properties": {
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "Momo"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "Revillame"
+                                    },
+                                    "address": {
+                                        "type": "string",
+                                        "example": "Caloocan City, Philippines"
+                                    },
+                                    "profile_picture": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Account updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Account updated successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "first_name": {
+                                                    "type": "string",
+                                                    "example": "Momo"
+                                                },
+                                                "last_name": {
+                                                    "type": "string",
+                                                    "example": "Revillame"
+                                                },
+                                                "email": {
+                                                    "type": "string",
+                                                    "example": "momo@example.com"
+                                                },
+                                                "address": {
+                                                    "type": "string",
+                                                    "example": "Caloocan City, Philippines"
+                                                },
+                                                "profile_picture": {
+                                                    "type": "string",
+                                                    "example": "storage/profile_pictures/user1.png"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "404": {
+                        "description": "User not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/manage-account/{user}/update-password": {
+            "put": {
+                "tags": [
+                    "Account Settings"
+                ],
+                "summary": "Update account password",
+                "description": "Allows the authenticated user to change their password by providing the current password and a new one.",
+                "operationId": "256b2ca7476021a97a129e58ca7b31ba",
+                "parameters": [
+                    {
+                        "name": "user",
+                        "in": "path",
+                        "description": "User ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "current_password",
+                                    "new_password",
+                                    "new_password_confirmation"
+                                ],
+                                "properties": {
+                                    "current_password": {
+                                        "type": "string",
+                                        "example": "OldPass@123"
+                                    },
+                                    "new_password": {
+                                        "type": "string",
+                                        "example": "NewPass@456"
+                                    },
+                                    "new_password_confirmation": {
+                                        "type": "string",
+                                        "example": "NewPass@456"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Password updated successfully."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Current password incorrect or validation failed"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/manage-account/login-history": {
+            "get": {
+                "tags": [
+                    "Account Settings"
+                ],
+                "summary": "Retrieve login history",
+                "description": "Fetch paginated login history for the authenticated user.",
+                "operationId": "a99d860ad6d079d639afd85bb2c20ce8",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number for pagination",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Login history retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "ip_address": {
+                                                                "type": "string",
+                                                                "example": "192.168.1.12"
+                                                            },
+                                                            "user_agent": {
+                                                                "type": "string",
+                                                                "example": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+                                                            },
+                                                            "created_at": {
+                                                                "type": "string",
+                                                                "format": "date-time",
+                                                                "example": "2025-10-21T15:23:01Z"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 45
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/v1/register": {
             "post": {
                 "tags": [
@@ -726,6 +1057,10 @@
         }
     },
     "tags": [
+        {
+            "name": "Account Settings",
+            "description": "Account Settings"
+        },
         {
             "name": "Authentication",
             "description": "Authentication"
