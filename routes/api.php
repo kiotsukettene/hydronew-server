@@ -58,6 +58,6 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::post('v1/hydroponic-setups', [HydroponicSetupController::class, 'store']);
 
     Route::get('v1/hydroponic-yields', [HydroponicYieldController::class, 'index']);
-    Route::get('v1/hydroponic-yields/{hydroponicSetup}', [HydroponicYieldController::class, 'show']);
+    Route::get('v1/hydroponic-yields/{setup}', [HydroponicYieldController::class, 'show']);
     Route::put('v1/hydroponic-yields/{yield}/update-actual-yield', [HydroponicYieldController::class, 'updateActualYield']);
 });

@@ -1212,6 +1212,284 @@
                 ]
             }
         },
+        "/api/hydroponics/yields": {
+            "get": {
+                "tags": [
+                    "Hydroponic Yields"
+                ],
+                "summary": "List all hydroponic yields for the authenticated user",
+                "description": "Retrieves all yield records from hydroponic setups belonging to the authenticated user.",
+                "operationId": "getHydroponicYields",
+                "responses": {
+                    "200": {
+                        "description": "List of hydroponic yields retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "hydroponic_setup_id": {
+                                                        "type": "integer",
+                                                        "example": 5
+                                                    },
+                                                    "harvest_status": {
+                                                        "type": "string",
+                                                        "example": "not_harvested"
+                                                    },
+                                                    "growth_stage": {
+                                                        "type": "string",
+                                                        "example": "seedling"
+                                                    },
+                                                    "health_status": {
+                                                        "type": "string",
+                                                        "example": "good"
+                                                    },
+                                                    "actual_yield": {
+                                                        "type": "number",
+                                                        "example": 12.5
+                                                    },
+                                                    "harvest_date": {
+                                                        "type": "string",
+                                                        "format": "date-time",
+                                                        "example": "2025-10-21T14:00:00Z"
+                                                    },
+                                                    "notes": {
+                                                        "type": "string",
+                                                        "example": "Healthy and uniform growth."
+                                                    },
+                                                    "system_generated": {
+                                                        "type": "boolean",
+                                                        "example": true
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated - user not logged in"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/hydroponics/yields/{setup}": {
+            "get": {
+                "tags": [
+                    "Hydroponic Yields"
+                ],
+                "summary": "Get yield details for a specific hydroponic setup",
+                "description": "Retrieves all yield records for a given hydroponic setup.",
+                "operationId": "showHydroponicYield",
+                "parameters": [
+                    {
+                        "name": "setup",
+                        "in": "path",
+                        "description": "The ID of the hydroponic setup",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 3
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Hydroponic yield details retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "hydroponic_setup_id": {
+                                                        "type": "integer",
+                                                        "example": 3
+                                                    },
+                                                    "growth_stage": {
+                                                        "type": "string",
+                                                        "example": "vegetative"
+                                                    },
+                                                    "health_status": {
+                                                        "type": "string",
+                                                        "example": "excellent"
+                                                    },
+                                                    "harvest_status": {
+                                                        "type": "string",
+                                                        "example": "not_harvested"
+                                                    },
+                                                    "system_generated": {
+                                                        "type": "boolean",
+                                                        "example": true
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Setup not found or no yields available"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/hydroponics/yields/{yield}/update-actual": {
+            "put": {
+                "tags": [
+                    "Hydroponic Yields"
+                ],
+                "summary": "Update the actual yield for a harvest",
+                "description": "Records the actual yield and marks it as harvested, including optional notes and automatic harvest date.",
+                "operationId": "updateActualYield",
+                "parameters": [
+                    {
+                        "name": "yield",
+                        "in": "path",
+                        "description": "The ID of the hydroponic yield record to update",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 7
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "actual_yield"
+                                ],
+                                "properties": {
+                                    "actual_yield": {
+                                        "description": "Actual yield amount",
+                                        "type": "number",
+                                        "example": 15.2
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "example": "Yield recorded after 60 days of growth."
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Actual yield updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Actual yield and harvest date recorded successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 7
+                                                },
+                                                "actual_yield": {
+                                                    "type": "number",
+                                                    "example": 15.2
+                                                },
+                                                "harvest_status": {
+                                                    "type": "string",
+                                                    "example": "harvested"
+                                                },
+                                                "harvest_date": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2025-10-21T14:00:00Z"
+                                                },
+                                                "notes": {
+                                                    "type": "string",
+                                                    "example": "Yield recorded after 60 days of growth."
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The actual_yield field is required."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/v1/water-monitoring": {
             "get": {
                 "tags": [
@@ -1324,6 +1602,10 @@
         {
             "name": "Hydroponic Setup",
             "description": "Hydroponic Setup"
+        },
+        {
+            "name": "Hydroponic Yields",
+            "description": "Hydroponic Yields"
         },
         {
             "name": "Water Quality",

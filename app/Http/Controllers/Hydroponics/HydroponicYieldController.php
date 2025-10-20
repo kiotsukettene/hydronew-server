@@ -25,9 +25,9 @@ class HydroponicYieldController extends Controller
         ]);
     }
 
-    public function show(HydroponicSetup $hydroponicSetup)
+    public function show(HydroponicSetup $setup)
     {
-        $yield = $hydroponicSetup->hydroponic_yields;
+        $yield = $setup->hydroponic_yields;
 
         return response()->json([
             'status' => 'success',
