@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\VerifyOTPRequest;
+use App\Models\LoginHistory;
 use App\Models\User;
 use App\Notifications\VerificationCodeNotification;
 use Illuminate\Http\Request;
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\Hash;
 class AuthController extends Controller
 {
 
-    
+
     protected function generateOtp(): string
     {
         return (string) random_int(100000, 999999); // 6 digit secure random code
@@ -93,9 +94,14 @@ class AuthController extends Controller
                 'needs_verification' => true
             ], 200);
         }
-
         // If matched, create a token for the user
         $token = $user->createToken('auth_token');
+
+        LoginHistory::create([
+            'user_id' => $user->id,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
 
         return [
             'message' => "Login successfully!",
@@ -141,6 +147,7 @@ class AuthController extends Controller
         $user->verification_code = null;
         $user->verification_expires_at = null;
         $user->last_otp_sent_at = null;
+        $user->last_login_at = now();
         $user->save();
 
         // Delete verification tokens and issue a full auth token

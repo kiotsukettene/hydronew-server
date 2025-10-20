@@ -78,6 +78,14 @@ class AccountController extends Controller
         return response()->json(['message' => 'Password updated successfully.']);
     }
 
+    public function loginHistory(Request $request)
+    {
+        $history = $request->user()->loginHistories()->orderBy('created_at', 'desc')->paginate(10);
+
+        return response()->json([
+            'data' => $history,
+        ]);
+    }
 }
 
 
