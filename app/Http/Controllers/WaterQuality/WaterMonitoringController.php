@@ -12,7 +12,7 @@ class WaterMonitoringController extends Controller
     {
 
         // Required sensor types for water quality checking
-        $requiredTypes = ['ph', 'turbidity', 'TDS', 'water_level', 'EC'];
+        $requiredTypes = ['ph', 'turbidity', 'tds', 'water_level', 'ec'];
 
 
         // Get the latest readings by type by grouping by sensor_id
@@ -30,9 +30,9 @@ class WaterMonitoringController extends Controller
 
         $qualityMsg = $this->safeForPlants(
             $readings->get('ph')?->reading_value,
-            $readings->get('TDS')?->reading_value,
+            $readings->get('tds')?->reading_value,
             $readings->get('turbidity')?->reading_value,
-            $readings->get('EC')?->reading_value
+            $readings->get('ec')?->reading_value
         );
 
         return response()->json([
