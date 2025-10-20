@@ -18,11 +18,11 @@ class SensorsSeeder extends Seeder
         $types = [
             ['ph', 'pH'],
             ['turbidity', 'NTU'],
-            ['TDS', 'ppm'],
+            ['tds', 'ppm'],
             ['temperature', '°C'],
             ['water_level', 'L'],
             ['humidity', '%'],
-            ['EC', 'µS/cm'],
+            ['ec', 'µS/cm'],
             ['electric_current', 'V'],
         ];
 
