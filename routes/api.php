@@ -8,6 +8,8 @@ use App\Http\Controllers\WaterQuality\WaterMonitoringController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Devices\DeviceController;
+use App\Http\Controllers\Hydroponics\HydroponicSetupController;
+use App\Models\HydroponicSetup;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -49,4 +51,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::put('v1/manage-account/{user}/update-password', [AccountController::class, 'updatePassword']);
 
     Route::get('v1/manage-account/login-history', [AccountController::class, 'loginHistory']);
+
+    Route::get('v1/hydroponic-setups', [HydroponicSetupController::class, 'index']);
+    Route::post('v1/hydroponic-setups', [HydroponicSetupController::class, 'store']);
 });
