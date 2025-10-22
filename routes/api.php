@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountSettings\AccountController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Dashboard\DashboardController;
+use App\Http\Controllers\HelpCenter\HelpCenterController;
 use App\Http\Controllers\WaterQuality\WaterMonitoringController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -25,7 +26,7 @@ Route::post('v1/verify-reset-code', [PasswordResetController::class, 'verifyRese
 Route::post('v1/resend-reset-code', [PasswordResetController::class, 'resendResetCode']);
 Route::post('v1/reset-password', [PasswordResetController::class, 'resetPassword']);
 
-
+Route::get('v1/help-center', [HelpCenterController::class,'index']);
 
 
 
@@ -60,4 +61,6 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('v1/hydroponic-yields', [HydroponicYieldController::class, 'index']);
     Route::get('v1/hydroponic-yields/{setup}', [HydroponicYieldController::class, 'show']);
     Route::put('v1/hydroponic-yields/{yield}/update-actual-yield', [HydroponicYieldController::class, 'updateActualYield']);
+
+
 });
