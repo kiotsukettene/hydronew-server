@@ -18,7 +18,6 @@ class HelpCenter extends Model
             $query->where('question', 'like', '%' . $filters['search'] . '%')
                 ->orWhere('answer', 'like', '%'. $filters['search'] . '%');
         }
-
         return $query;
     }
 }
