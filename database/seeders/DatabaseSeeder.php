@@ -35,6 +35,7 @@ class DatabaseSeeder extends Seeder
             HydroponicYieldSeeder::class,
             TipsSuggestionsSeeder::class,
             NotificationSeeder::class,
+            HelpCenterSeeder::class,
         ]);
     }
 }
