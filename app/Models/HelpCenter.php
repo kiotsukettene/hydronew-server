@@ -13,6 +13,11 @@ class HelpCenter extends Model
         "answer",
     ];
 
+    protected $hidden = [
+        'created_at',
+        'updated_at',
+    ];
+
     public function scopeFilter($query, array $filters) {
         if ($filters['search'] ?? false) {
             $query->where('question', 'like', '%' . $filters['search'] . '%')

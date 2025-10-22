@@ -16,8 +16,9 @@ class HelpCenterController extends Controller
         $helpCenter = HelpCenter::filter($filters)->paginate(5)->withQueryString();
 
         return [
-            'data' => HelpCenterResource::collection($helpCenter),
+            'data' => $helpCenter,
             'filters' => $filters
         ];
+
     }
 }
