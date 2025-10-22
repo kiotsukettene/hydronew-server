@@ -968,6 +968,84 @@
                 ]
             }
         },
+        "/api/help-center": {
+            "get": {
+                "tags": [
+                    "Help Center"
+                ],
+                "summary": "Get paginated Help Center FAQs",
+                "description": "Retrieve a list of Help Center questions and answers. Supports optional search filtering and pagination.",
+                "operationId": "getHelpCenterList",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Search term to filter questions or answers",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "lettuce"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number for pagination",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated list of Help Center items",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "question": {
+                                                        "type": "string",
+                                                        "example": "What types of plants can I grow in this system?"
+                                                    },
+                                                    "answer": {
+                                                        "type": "string",
+                                                        "example": "This system is designed exclusively for growing lettuce..."
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "filters": {
+                                            "properties": {
+                                                "search": {
+                                                    "type": "string",
+                                                    "example": "lettuce"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or bad parameters"
+                    }
+                }
+            }
+        },
         "/api/v1/hydroponic-setups": {
             "get": {
                 "tags": [
@@ -1598,6 +1676,10 @@
         {
             "name": "Devices",
             "description": "Devices"
+        },
+        {
+            "name": "Help Center",
+            "description": "Help Center"
         },
         {
             "name": "Hydroponic Setup",
