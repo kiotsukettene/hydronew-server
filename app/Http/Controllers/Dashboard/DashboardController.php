@@ -39,7 +39,7 @@ class DashboardController extends Controller
             ->first();
 
         return response()->json([
-            'user' => 'Hello, ' . $user->first_name . '!',
+            'user' => $user->first_name,
             'ph_level' => [
                 'value' => $latestPhReading?->reading_value,
                 'unit' => $phSensor->unit,
