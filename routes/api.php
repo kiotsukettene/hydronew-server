@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountSettings\AccountController;
+use App\Http\Controllers\SensorReadings\SensorReadingsController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Dashboard\DashboardController;
@@ -64,3 +65,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
 
 
 });
+
+
+Route::post('/v1/sensor-reading', [SensorReadingsController::class, 'store'])
+    ->middleware('auth.secret');

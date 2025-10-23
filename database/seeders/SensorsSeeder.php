@@ -17,8 +17,8 @@ class SensorsSeeder extends Seeder
         $device = Device::first();
         $types = [
             ['ph', 'pH'],
-            ['turbidity', 'NTU'],
             ['tds', 'ppm'],
+            ['turbidity', 'NTU'] ,
             ['temperature', '°C'],
             ['water_level', 'L'],
             ['humidity', '%'],
