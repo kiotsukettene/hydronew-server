@@ -38,11 +38,9 @@ class ForgotPasswordCodeNotification extends Notification
     {
         return (new MailMessage)
             ->subject('Your Password Reset Code')
-            ->line('You requested to reset your password.')
-            ->line('Here is your 6-digit code:')
-            ->line("**{$this->code}**")
-            ->line('This code will expire in 15 minutes.')
-            ->line('If you did not request this, please ignore this email.');
+            ->view('emails.forgot-password-code', [
+                'code' => $this->code,
+            ]);
     }
 
     /**

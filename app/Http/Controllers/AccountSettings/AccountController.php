@@ -18,32 +18,33 @@ class AccountController extends Controller
 
         $ownedDevices = Device::where('user_id', $user->id)->count();
 
-        $fullName = $user->first_name . ' ' . $user->last_name;
         $email = $user->email;
 
 
         return response()->json([
             'data' => [
-                'full_name' => $fullName,
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
                 'email' => $email,
+                'address' => $user->address,
                 'owned_devices_count' => $ownedDevices,
+                'profile_picture' => $user->profile_picture
+                    ? asset('storage/' . $user->profile_picture)
+                    : null,
             ]
         ]);
     }
 
     public function update(Request $request, User $user)
     {
+        $user = $request->user();
+
         $validated = $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'address' => 'nullable|string|max:255',
-            'profile_picture' => 'nullable|image|max:2048',
         ]);
-
-        if ($request->hasFile('profile_picture')) {
-            $path = $request->file('profile_picture')->store('profile_pictures', 'public');
-            $validated['profile_picture'] = $path;
-        }
 
         $user->update($validated);
 
@@ -53,8 +54,40 @@ class AccountController extends Controller
         ]);
     }
 
+    public function updateProfilePicture(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$request->hasFile('profile_picture')) {
+            return response()->json([
+                'message' => 'No file uploaded.',
+                'debug' => $request->all(), 
+            ], 400);
+        }
+
+        $validated = $request->validate([
+            'profile_picture' => 'required|image|max:2048',
+        ]);
+
+        $path = $request->file('profile_picture')->store('profile_pictures', 'public');
+
+        $user->profile_picture = $path;
+        $user->save();
+
+        return response()->json([
+            'message' => 'Profile picture updated successfully.',
+            'data' => [
+                'id' => $user->id,
+                'profile_picture' => asset('storage/' . $path),
+            ],
+        ]);
+    }
+
+
     public function updatePassword(Request $request, User $user)
     {
+        $user = $request->user();
+        
         $validated = $request->validate([
             'current_password' => 'required|string',
             'new_password' => [
