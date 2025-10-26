@@ -38,9 +38,9 @@ class VerificationCodeNotification extends Notification
     {
         return (new MailMessage)
             ->subject('Your verification code')
-            ->line("Your verification code is: {$this->code}")
-            ->line('The code will expire in 10 minutes.')
-            ->line('If you did not request this, ignore this message.');
+            ->view('emails.verification-code', [
+                'code' => $this->code,
+            ]);
     }
 
     /**
