@@ -50,8 +50,9 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('v1/water-monitoring', [WaterMonitoringController::class, 'index']);
 
     Route::get('v1/manage-account', [AccountController::class, 'index']);
-    Route::put('v1/manage-account/{user}', [AccountController::class, 'update']);
-    Route::put('v1/manage-account/{user}/update-password', [AccountController::class, 'updatePassword']);
+    Route::put('v1/update-account', [AccountController::class, 'update']);
+    Route::post('v1/update-profile-picture', [AccountController::class, 'updateProfilePicture']);
+    Route::put('v1/manage-account/update-password', [AccountController::class, 'updatePassword']);
 
     Route::get('v1/manage-account/login-history', [AccountController::class, 'loginHistory']);
 

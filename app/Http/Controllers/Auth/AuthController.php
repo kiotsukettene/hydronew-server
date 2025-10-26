@@ -74,9 +74,9 @@ class AuthController extends Controller
 
         // If the user does not exist or the password does not match
         if (!$user || !Hash::check($request->password, $user->password)) {
-            return [
-                'message' => 'Invalid credentials'
-            ];
+            return response()->json([
+                    'message' => 'Invalid credentials'
+                ], 422);
         }
 
         if (!$user->email_verified_at) {
