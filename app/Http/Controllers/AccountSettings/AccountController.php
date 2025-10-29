@@ -61,7 +61,7 @@ class AccountController extends Controller
         if (!$request->hasFile('profile_picture')) {
             return response()->json([
                 'message' => 'No file uploaded.',
-                'debug' => $request->all(), 
+                'debug' => $request->all(),
             ], 400);
         }
 
@@ -87,18 +87,9 @@ class AccountController extends Controller
     public function updatePassword(Request $request, User $user)
     {
         $user = $request->user();
-        
+
         $validated = $request->validate([
-            'current_password' => 'required|string',
-            'new_password' => [
-                'required',
-                'confirmed',
-                Password::min(8) // require at least 8 characters
-                    ->letters()   // must contain letters
-                    ->numbers()   // must contain numbers
-                    ->mixedCase() // must contain uppercase + lowercase
-                    ->symbols(),  // must contain symbols
-            ],
+            
         ]);
 
         if (!Hash::check($validated['current_password'], $user->password)) {
