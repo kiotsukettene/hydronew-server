@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\AccountSettings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AccountSettings\UpdateAccountRequest;
 use App\Models\Device;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -36,15 +37,12 @@ class AccountController extends Controller
         ]);
     }
 
-    public function update(Request $request, User $user)
+    public function update(UpdateAccountRequest $request, User $user)
     {
         $user = $request->user();
 
-        $validated = $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'address' => 'nullable|string|max:255',
-        ]);
+        $validated = $request->validated();
+
 
         $user->update($validated);
 
@@ -88,9 +86,7 @@ class AccountController extends Controller
     {
         $user = $request->user();
 
-        $validated = $request->validate([
-            
-        ]);
+        $validated = $request->validate([]);
 
         if (!Hash::check($validated['current_password'], $user->password)) {
             return response()->json(['message' => 'Current password is incorrect.'], 400);
