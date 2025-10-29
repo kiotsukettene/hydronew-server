@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Requests\AccountSettings;
+namespace App\Http\Requests\Hydroponics;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class UpdateAccountRequest extends FormRequest
+class UpdateActualYieldRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -22,9 +22,8 @@ class UpdateAccountRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'address' => 'nullable|string|max:255',
+            'actual_yield' => 'required|numeric|min:0',
+            'notes' => 'nullable|string',
         ];
     }
 }
