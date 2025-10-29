@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Hydroponics;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Hydroponics\UpdateActualYieldRequest;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
 use Illuminate\Http\Request;
@@ -87,12 +88,9 @@ class HydroponicYieldController extends Controller
         ]);
     }
 
-    public function updateActualYield(Request $request, HydroponicYield $yield)
+    public function updateActualYield(UpdateActualYieldRequest $request, HydroponicYield $yield)
     {
-        $validated = $request->validate([
-            'actual_yield' => 'required|numeric|min:0',
-            'notes' => 'nullable|string',
-        ]);
+        $validated = $request->validated();
 
         $yield->update([
             'actual_yield' => $validated['actual_yield'],
