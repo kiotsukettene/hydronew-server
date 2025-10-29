@@ -6,14 +6,14 @@ export default function AboutUs() {
   return (
     <div className="min-h-screen">
       <HydroNewNavbar currentPage="about" />
-      
+
       {/* Hero Section with Background Image */}
       <section className="relative min-h-screen flex items-center">
         {/* Background Image */}
         <div className="absolute inset-0 z-0">
-          <img 
-            src="/images/hero/about-us-bg.png" 
-            alt="Natural landscape background" 
+          <img
+            src="/images/hero/about-us-bg.png"
+            alt="Natural landscape background"
             className="w-full h-full object-cover"
           />
           {/* Overlay for better text readability */}
@@ -24,7 +24,7 @@ export default function AboutUs() {
         <div className="relative z-10 w-full px-6">
           <div className="max-w-7xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              
+
               {/* Left Section - Main Content */}
               <div className="space-y-8">
                 {/* Who We Are Button */}
@@ -50,7 +50,7 @@ export default function AboutUs() {
               <div className="flex justify-end">
                 <div className="bg-gray-200 bg-opacity-90 backdrop-blur-sm rounded-2xl p-8 max-w-sm">
                   <h3 className="text-xl font-bold text-black mb-6">Download Our App</h3>
-                  
+
                   <button className="w-full bg-green-600 text-white px-6 py-4 rounded-lg flex items-center justify-center gap-3 hover:bg-green-700 transition-colors">
                     <Download className="w-5 h-5" />
                     <span className="font-medium">Download</span>
