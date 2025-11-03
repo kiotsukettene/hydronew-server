@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
-use Kreait\Firebase\Auth;
+use Kreait\Firebase\Contract\Auth;
 use Kreait\Firebase\Exception\Auth\FailedToVerifyToken;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 
