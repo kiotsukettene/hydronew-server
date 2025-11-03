@@ -12,7 +12,11 @@ export function SimpleHeader() {
 			href: '#',
 		},
 		{
-			label: 'Abous',
+			label: 'About',
+			href: '#',
+		},
+		{
+			label: 'FAQ',
 			href: '#',
 		},
 		

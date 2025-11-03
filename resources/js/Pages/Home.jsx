@@ -1,7 +1,7 @@
 import React from 'react'
-import { HydroNewNavbar } from '@/components/ui/hydronew-navbar';
+
 import { HeroSection } from '@/components/ui/hero-section'
-import { AboutUsSection } from '@/components/ui/about-us-section'
+
 import { FeaturesSection } from '@/components/ui/features-section'
 import { BenefitsSection } from '@/components/ui/benefits-section'
 import { FooterSection } from '@/components/ui/footer-section'
@@ -13,7 +13,6 @@ const Home = () => {
 
   return (
     <div>
-        <HydroNewNavbar />
       <SimpleHeader/>
       <HeroSection />
       <AboutSection2/>

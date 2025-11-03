@@ -1,109 +1,125 @@
-import React from 'react';
-import { RotateCcw, Leaf, Sun, ChevronDown } from 'lucide-react';
+import React, { useState, useMemo } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import IPhoneMockup from "./iphone-mockup";
+import { Button } from "./button";
 
 export function HeroSection() {
+  const slides = useMemo(
+    () => [
+      "/images/monitor.png",
+      "/images/hydroponics.png",
+      "/images/filtration.png",
+      "/images/dashboard.png",
+      "/images/account.png",
+    ],
+    []
+  );
+
+  const [index, setIndex] = useState(3);
+  const total = slides.length;
+
+  const next = () => setIndex((prev) => (prev + 1) % total);
+  const prev = () => setIndex((prev) => (prev - 1 + total) % total);
+
+  const left2 = (index - 2 + total) % total;
+  const left1 = (index - 1 + total) % total;
+  const right1 = (index + 1) % total;
+  const right2 = (index + 2) % total;
+
   return (
-    <section className="bg-white py-16 px-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Hero Title Section */}
-        <div className="relative text-center mb-16">
-          {/* Decorative Icons */}
-          <div className="absolute -top-8 -left-8 w-12 h-12 bg-[#D7E7BA] rounded-full flex items-center justify-center">
-            <RotateCcw className="w-6 h-6 text-green-700" />
-          </div>
-          
-          <div className="absolute top-4 -left-16 w-12 h-12 bg-[#004A30] rounded-full flex items-center justify-center">
-            <Leaf className="w-6 h-6 text-white" />
-          </div>
-          
-          <div className="absolute -top-8 -right-8 w-12 h-12 bg-[#D7E7BA] rounded-full flex items-center justify-center">
-            <Sun className="w-6 h-6 text-green-700" />
-          </div>
-          
-          <div className="absolute top-4 -right-16 w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
-            <ChevronDown className="w-6 h-6 text-gray-600" />
-          </div>
+      <section className="min-h-screen w-full relative overflow-hidden  pt-24 pb-12 bg-white">
+  {/* Soft Yellow Glow */}
+  <div
+    className="absolute inset-0 z-0"
+    style={{
+      backgroundImage: `
+        radial-gradient(circle at center, #D7E7BA 0%, transparent 70%)
+      `,
+      opacity: 0.6,
+      mixBlendMode: "multiply",
+    }}
+  />
+     {/* =========================== Main Content =========================== */}
 
-          {/* Main Title */}
-          <h1 className="text-4xl md:text-6xl font-bold text-black leading-tight">
-            SAFE WATER,{' '}
-            <span className="bg-[#D7E7BA] px-4 py-2 rounded-full">HEALTHY</span>
-            {' '}PLANTS, SMARTER FUTURE
-          </h1>
-        </div>
-
-        {/* Five Panel Layout */}
-        <div className="flex flex-col lg:flex-row gap-8 items-start">
-          {/* Panel 1: Landscape Image */}
-          <div className="w-full lg:w-1/5">
-            <div className="aspect-square rounded-2xl overflow-hidden">
-              <img 
-                src="/images/hero/image1.png" 
-                alt="Terraced agricultural fields with golden light" 
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </div>
-
-          {/* Panel 2: Text Boxes */}
-          <div className="w-full lg:w-1/5 space-y-4">
-            {/* Fresh Lettuce Card */}
-            <div className="bg-gray-200 rounded-2xl p-6">
-              <h3 className="font-bold text-black text-lg mb-2">FRESH LETTUCE HARVEST</h3>
-              <p className="text-black text-sm">SUCCESSFULLY GROWN WITH SAFE, TREATED WATER.</p>
-            </div>
-            
-            {/* Filtration Stages Card */}
-            <div className="bg-[#D7E7BA] rounded-2xl p-6">
-              <h3 className="font-bold text-black text-lg mb-2">3 FILTRATION STAGES</h3>
-              <p className="text-black text-sm">MICROBIAL FUEL CELL, NATURAL FILTER, AND UV PURIFICATION FOR CLEANER GROWTH.</p>
-            </div>
-          </div>
-
-          {/* Panel 3: Large Leaf with Overlay */}
-          <div className="w-full lg:w-1/5">
-            <div className="aspect-[3/5] rounded-2xl overflow-hidden relative">
-              <img 
-                src="/images/hero/image2.png" 
-                alt="Large green leaf with prominent veins" 
-                className="w-full h-full object-cover"
-              />
-              
-              {/* Text Overlay */}
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl px-6 py-4 min-w-[200px]">
-                <p className="font-bold text-black text-sm text-center leading-tight">
-                  FROM<br />
-                  WASTE TO<br />
-                  HARVEST
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Panel 4: Medium Leaf with Overlay */}
-          <div className="w-full lg:w-1/5">
-            <div className="aspect-[3/4] rounded-2xl overflow-hidden relative">
-              <img 
-                src="/images/hero/image3.png" 
-                alt="Medium green leaf with vein structure" 
-                className="w-full h-full object-cover"
-              />
-              
-              {/* Text Overlay */}
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-xl px-4 py-2">
-                <p className="font-bold text-black text-sm">AI MEETS HYDROPONICS.</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Panel 5: AI Monitoring Card */}
-          <div className="w-full lg:w-1/5">
-            <div className="aspect-square bg-[#D7E7BA] rounded-2xl p-6 flex items-center justify-center">
-              <p className="font-bold text-black text-lg text-center">AI-DRIVEN MONITORING</p>
-            </div>
-          </div>
-        </div>
+      {/* Header */}
+      <div className="text-center ">
+        <h1 className="text-5xl md:text-6xl font-bold text-[#1b1b1b] tracking-tight">
+          Find your balance
+        </h1>
+        <p className="mt-4 text-gray-700 max-w-2xl mx-auto">
+          Join thousands on a journey to a more centered, focused, and fulfilling life.
+        </p>
+        <button className="mt-8 px-8 py-3 rounded-full bg-black text-white font-medium hover:bg-neutral-800 transition">
+          Download
+        </button>
       </div>
-    </section>
+
+      {/* Screens Row */}
+      <div className="relative flex items-center justify-center max-w-7xl mx-auto gap-6 -mt-10 ">
+        {/* Left 2 (furthest) */}
+        <div className="opacity-70 scale-80 -rotate-6 transition-all duration-500 ease-in-out">
+          <div className="w-[230px] h-full overflow-hidden rounded-3xl shadow ring-8 ring-gray-600/10">
+            <img src={slides[left2]} alt="left2" className="object-cover w-full h-full" />
+          </div>
+        </div>
+
+        {/* Left 1 (closer) */}
+        <div className="opacity-80 scale-85 -rotate-2 transition-all duration-500 ease-in-out">
+          <div className="w-[250px] h-full overflow-hidden rounded-3xl shadow ring-8 ring-gray-600/10">
+            <img src={slides[left1]} alt="left1" className="object-cover w-full h-full" />
+          </div>
+        </div>
+
+        {/* Center mockup with soft glow */}
+        <div className="relative z-10">
+          {/* Glow background */}
+          <div className="absolute inset-0 -z-10 flex justify-center">
+            <div className="w-[100px] h-[100px] bg-[#a3ffba] blur-3xl rounded-full opacity-70" />
+          </div>
+
+          {/* Main phone mockup (slightly smaller) */}
+          <div className="scale-[0.70] transition-all  duration-500 ease-in-out ">
+           <IPhoneMockup
+  color="space-black"
+  wallpaper={slides[index]}
+  wallpaperFit="cover"
+  wallpaperPosition="center"
+/>
+
+          </div>
+        </div>
+
+        {/* Right 1 (closer) */}
+        <div className="opacity-80 scale-85 rotate-2 transition-all duration-500 ease-in-out">
+          <div className="w-[250px] h-full overflow-hidden rounded-3xl shadow ring-8 ring-gray-600/10">
+            <img src={slides[right1]} alt="right1" className="object-cover w-full h-full" />
+          </div>
+        </div>
+
+        {/* Right 2 (furthest) */}
+        <div className="opacity-70 scale-80 rotate-6 transition-all duration-500 ease-in-out">
+          <div className="w-[230px] h-full overflow-hidden rounded-3xl shadow ring-8 ring-gray-600/10">
+            <img src={slides[right2]} alt="right2" className="object-cover w-full h-full" />
+          </div>
+        </div>
+
+        {/* Buttons */}
+        <Button
+          onClick={prev}
+          className="absolute cursor-pointer left-[33%] top-1/2  bg-lime-200 rounded-full "
+        >
+          <ChevronLeft className="w-5 h-5 text-black" />
+        </Button>
+        <Button
+          onClick={next}
+          className="absolute cursor-pointer right-[33%] top-1/2  bg-lime-200 rounded-full "
+        >
+          <ChevronRight className="w-5 h-5 text-black" />
+        </Button>
+      </div>
+</section>
+     
   );
 }
+
+export default HeroSection;

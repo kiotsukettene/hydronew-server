@@ -1,6 +1,5 @@
 import React from 'react';
 import { ArrowRight, Download } from 'lucide-react';
-import { HydroNewNavbar } from '@/components/ui/hydronew-navbar';
 
 export default function AboutUs() {
   return (
