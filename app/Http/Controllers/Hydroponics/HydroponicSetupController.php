@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Hydroponics;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Hydroponics\StoreHydroponicsRequest;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
 use Illuminate\Http\Request;
@@ -15,7 +16,7 @@ class HydroponicSetupController extends Controller
 
         $user = Auth::user();
 
-        $setups = HydroponicSetup::where('user_id', $user->id)->paginate(2);
+        $setups = HydroponicSetup::where('user_id', $user->id)->paginate(10);
 
         return response()->json([
             'status' => 'success',
@@ -23,20 +24,9 @@ class HydroponicSetupController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreHydroponicsRequest $request)
     {
-        $validated = $request->validate([
-            'crop_name' => 'required|string|max:255',
-            'number_of_crops' => 'required|integer|min:1',
-            'bed_size' => 'required|in:small,medium,large',
-            'pump_config' => 'nullable|array',
-            'nutrient_solution' => 'required|string|max:255',
-            'target_ph_min' => 'required|numeric',
-            'target_ph_max' => 'required|numeric',
-            'target_tds_min' => 'required|integer',
-            'target_tds_max' => 'required|integer',
-            'water_amount' => 'required|string|max:50',
-        ]);
+        $validated = $request->validated();
 
         $validated['user_id'] = Auth::id();
         $validated['status'] = 'active';

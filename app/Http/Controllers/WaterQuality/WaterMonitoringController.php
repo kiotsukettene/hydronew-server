@@ -50,7 +50,7 @@ class WaterMonitoringController extends Controller
 
         // Check each condition individually
         $isPhSafe = ($ph >= 6.5 && $ph <= 8.0);
-        $isTdsSafe = ($tds >= 700 && $tds <= 1400);
+        $isTdsSafe = ($tds >= 560 && $tds <= 840);
         $isTurbiditySafe = ($turbidity <= 5);
         $isEcSafe = ($ec >= 1.2 && $ec <= 2.5); // Corrected range
 

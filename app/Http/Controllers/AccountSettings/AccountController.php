@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\AccountSettings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AccountSettings\UpdateAccountRequest;
+use App\Http\Requests\AccountSettings\UpdatePasswordRequest;
 use App\Models\Device;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -36,15 +38,12 @@ class AccountController extends Controller
         ]);
     }
 
-    public function update(Request $request, User $user)
+    public function update(UpdateAccountRequest $request, User $user)
     {
         $user = $request->user();
 
-        $validated = $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'address' => 'nullable|string|max:255',
-        ]);
+        $validated = $request->validated();
+
 
         $user->update($validated);
 
@@ -61,7 +60,7 @@ class AccountController extends Controller
         if (!$request->hasFile('profile_picture')) {
             return response()->json([
                 'message' => 'No file uploaded.',
-                'debug' => $request->all(), 
+                'debug' => $request->all(),
             ], 400);
         }
 
@@ -84,22 +83,11 @@ class AccountController extends Controller
     }
 
 
-    public function updatePassword(Request $request, User $user)
+    public function updatePassword(UpdatePasswordRequest $request, User $user)
     {
         $user = $request->user();
-        
-        $validated = $request->validate([
-            'current_password' => 'required|string',
-            'new_password' => [
-                'required',
-                'confirmed',
-                Password::min(8) // require at least 8 characters
-                    ->letters()   // must contain letters
-                    ->numbers()   // must contain numbers
-                    ->mixedCase() // must contain uppercase + lowercase
-                    ->symbols(),  // must contain symbols
-            ],
-        ]);
+
+        $validated = $request->validated();
 
         if (!Hash::check($validated['current_password'], $user->password)) {
             return response()->json(['message' => 'Current password is incorrect.'], 400);
