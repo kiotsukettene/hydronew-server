@@ -1,4 +1,3 @@
-
 <?php
 
 namespace App\Services;
@@ -18,7 +17,8 @@ class FirebaseAuthService
         $this->auth = $auth;
     }
 
-    public function getUserFromFirebaseToken(string $firebaseIdToken) {
+    public function getUserFromFirebaseToken(string $firebaseIdToken)
+    {
         try {
             /** @var UnercryptedToken $verifiedIdToken */
             $verifiedIdToken = $this->auth->verifyIdToken($firebaseIdToken);
@@ -48,13 +48,10 @@ class FirebaseAuthService
                 return $user;
             }
             return $user;
-        }
-        catch(FailedToVerifyToken $exception) {
+        } catch (FailedToVerifyToken $exception) {
             Log::error($exception->getMessage());
             throw new BadRequestException("The token is invalid");
-        }
-
-        catch(\Exception $exception) {
+        } catch (\Exception $exception) {
             Log::error($exception->getMessage());
             throw new BadRequestException("An error occurred while verifying the token");
         }
