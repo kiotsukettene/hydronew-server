@@ -42,8 +42,8 @@ export default function AboutSection2() {
     <section className="pt-24 ">
       <div className="max-w-7xl mx-auto" ref={heroRef}>
           <div className="mb-8">
-            <div className="inline-block bg-[#D7E7BA] rounded-full px-8 py-3">
-              <span className="text-[#004A30] font-bold text-md">About</span>
+            <div className="inline-block rounded-full border-2 border-gray-300/80 px-6 py-2">
+              <span className="font-medium text-lg" >About</span>
             </div>
           </div>
       

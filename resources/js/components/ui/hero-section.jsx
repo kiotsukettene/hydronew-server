@@ -27,7 +27,7 @@ export function HeroSection() {
   const right2 = (index + 2) % total;
 
   return (
-      <section className="min-h-screen w-full relative overflow-hidden  pt-24 pb-12 bg-white">
+      <section className="min-h-screen w-full relative overflow-hidden  pt-48 pb-12 bg-white">
   {/* Soft Yellow Glow */}
   <div
     className="absolute inset-0 z-0"
@@ -43,15 +43,15 @@ export function HeroSection() {
 
       {/* Header */}
       <div className="text-center ">
-        <h1 className="text-5xl md:text-6xl font-bold text-[#1b1b1b] tracking-tight">
-          Find your balance
+        <h1 className="text-5xl md:text-6xl font-bold text-[#1b1b1b] tracking-normal ">
+          Grow with Nature, <br />Powered by <span style={{ fontFamily: '"Viaoda Libre", serif' }} className="font-semibold text-neutral-700">Technology</span>
         </h1>
         <p className="mt-4 text-gray-700 max-w-2xl mx-auto">
-          Join thousands on a journey to a more centered, focused, and fulfilling life.
+          HydroNew ensures clean and balanced water for your hydroponic system, helping your plants grow healthier and stronger.
         </p>
-        <button className="mt-8 px-8 py-3 rounded-full bg-black text-white font-medium hover:bg-neutral-800 transition">
+        {/* <button className="mt-8 px-8 py-3 rounded-full bg-black text-white font-medium hover:bg-neutral-800 transition">
           Download
-        </button>
+        </button> */}
       </div>
 
       {/* Screens Row */}
