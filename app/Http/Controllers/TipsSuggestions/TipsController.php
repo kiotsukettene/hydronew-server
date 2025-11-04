@@ -123,7 +123,6 @@ PROMPT;
 
         if (json_last_error() !== JSON_ERROR_NONE) {
             return response()->json([
-                'context' => $context,
                 'raw_output' => $output,
                 'error' => 'Invalid JSON structure detected'
             ]);
