@@ -131,7 +131,6 @@ PROMPT;
 
         // ✅ Step 6: Return combined data
         return response()->json([
-            'context' => $context,
             'quality' => $qualityMsg,
             'tips' => $decoded,
         ]);
