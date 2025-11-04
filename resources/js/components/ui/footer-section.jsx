@@ -4,9 +4,9 @@ export function FooterSection() {
   return (
     <footer className="relative mt-16">
       {/* Curved Light Green Background */}
-      <div className="relative bg-[#D6E5BE] overflow-hidden">
+      <div className="relative  overflow-hidden">
         {/* Curved top edge */}
-        <div className="absolute -top-12 left-0 right-0 h-24 bg-[#D6E5BE] " 
+        <div className="absolute -top-12 left-0 right-0 h-24  " 
              style={{
                clipPath: 'ellipse(100% 100% at 50% 0%)'
              }}>
@@ -17,12 +17,7 @@ export function FooterSection() {
 
         <div className="pt-20 pb-12 px-6">
           <div className="max-w-7xl mx-auto">
-            {/* STAY CONNECTED WITH US Heading */}
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-black">
-                STAY CONNECTED WITH US
-              </h2>
-            </div>
+            
 
             {/* Footer Content */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">

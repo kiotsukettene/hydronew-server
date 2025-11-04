@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import IPhoneMockup from "./iphone-mockup";
 import { Button } from "./button";
@@ -16,6 +16,7 @@ export function HeroSection() {
   );
 
   const [index, setIndex] = useState(3);
+  const [revealSides, setRevealSides] = useState(false);
   const total = slides.length;
 
   const next = () => setIndex((prev) => (prev + 1) % total);
@@ -25,6 +26,17 @@ export function HeroSection() {
   const left1 = (index - 1 + total) % total;
   const right1 = (index + 1) % total;
   const right2 = (index + 2) % total;
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrolled = window.scrollY > 10;
+      setRevealSides(scrolled);
+    };
+    // initialize based on current position
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
       <section className="min-h-screen w-full relative overflow-hidden  pt-48 pb-12 bg-white">
@@ -49,22 +61,22 @@ export function HeroSection() {
         <p className="mt-4 text-gray-700 max-w-2xl mx-auto">
           HydroNew ensures clean and balanced water for your hydroponic system, helping your plants grow healthier and stronger.
         </p>
-        {/* <button className="mt-8 px-8 py-3 rounded-full bg-black text-white font-medium hover:bg-neutral-800 transition">
-          Download
-        </button> */}
+        <button className="mt-8 px-8 py-3 rounded-full bg-black text-white font-medium hover:bg-neutral-800 transition">
+          Learn More
+        </button>
       </div>
 
       {/* Screens Row */}
       <div className="relative flex items-center justify-center max-w-7xl mx-auto gap-6 -mt-10 ">
         {/* Left 2 (furthest) */}
-        <div className="opacity-70 scale-80 -rotate-6 transition-all duration-500 ease-in-out">
+        <div className={`${revealSides ? "opacity-70 scale-80 -rotate-6" : "opacity-0 scale-50 -rotate-6"} transition-all duration-500 ease-in-out`}>
           <div className="w-[230px] h-full overflow-hidden rounded-3xl shadow ring-8 ring-gray-600/10">
             <img src={slides[left2]} alt="left2" className="object-cover w-full h-full" />
           </div>
         </div>
 
         {/* Left 1 (closer) */}
-        <div className="opacity-80 scale-85 -rotate-2 transition-all duration-500 ease-in-out">
+        <div className={`${revealSides ? "opacity-80 scale-85 -rotate-2" : "opacity-0 scale-50 -rotate-2"} transition-all duration-500 ease-in-out`}>
           <div className="w-[250px] h-full overflow-hidden rounded-3xl shadow ring-8 ring-gray-600/10">
             <img src={slides[left1]} alt="left1" className="object-cover w-full h-full" />
           </div>
@@ -90,14 +102,14 @@ export function HeroSection() {
         </div>
 
         {/* Right 1 (closer) */}
-        <div className="opacity-80 scale-85 rotate-2 transition-all duration-500 ease-in-out">
+        <div className={`${revealSides ? "opacity-80 scale-85 rotate-2" : "opacity-0 scale-50 rotate-2"} transition-all duration-500 ease-in-out`}>
           <div className="w-[250px] h-full overflow-hidden rounded-3xl shadow ring-8 ring-gray-600/10">
             <img src={slides[right1]} alt="right1" className="object-cover w-full h-full" />
           </div>
         </div>
 
         {/* Right 2 (furthest) */}
-        <div className="opacity-70 scale-80 rotate-6 transition-all duration-500 ease-in-out">
+        <div className={`${revealSides ? "opacity-70 scale-80 rotate-6" : "opacity-0 scale-50 rotate-6"} transition-all duration-500 ease-in-out`}>
           <div className="w-[230px] h-full overflow-hidden rounded-3xl shadow ring-8 ring-gray-600/10">
             <img src={slides[right2]} alt="right2" className="object-cover w-full h-full" />
           </div>
