@@ -13,7 +13,7 @@ export function SimpleHeader() {
 		},
 		{
 			label: 'About',
-			href: '#',
+			href: '/about-us',
 		},
 		{
 			label: 'FAQ',
