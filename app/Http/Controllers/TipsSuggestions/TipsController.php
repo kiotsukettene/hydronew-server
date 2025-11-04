@@ -10,93 +10,6 @@ use Illuminate\Support\Facades\Http;
 
 class TipsController extends Controller
 {
-
-//     public function generateTips(Request $request)
-//     {
-//         $topic = $request->input('topic', 'general plant care');
-//         $context = $request->input('context', 'hydroponic lettuce system');
-
-//        $prompt = <<<PROMPT
-// You are an expert in hydroponics, wastewater treatment, and sustainable agriculture.
-// Generate practical, clear, and structured eco-tips for users of a smart IoT-based hydroponic system powered by Microbial Fuel Cells (MFCs) that treat organic greywater for plant growth.
-
-// Context:
-// - The system includes MFC-based wastewater treatment, natural filters (sand, anthracite, pebbles, charcoal), and UV filtration.
-// - IoT sensors monitor pH, TDS, turbidity, temperature, and water level.
-// - The AI model uses Random Forest C to optimize treatment and predict efficiency.
-// - The hydroponic system is designed for lettuce cultivation using treated greywater.
-
-// Focus the tips on:
-// 1. Water quality management and monitoring
-// 2. Nutrient balance and dosing for hydroponic lettuce
-// 3. Plant growth optimization and maintenance
-// 4. Efficient IoT system operation and troubleshooting
-// 5. Eco-friendly practices and energy efficiency in MFC-powered systems
-
-// Format the response as **valid JSON** with the following fields:
-// {
-//   "category": "string",
-//   "title": "string",
-//   "description": "string",
-//   "bullet_points": [
-//       {
-//         "heading": "string",
-//         "tips": ["string", "string", "string"]
-//       }
-//   ]
-// }
-
-// Ensure the JSON is properly formatted with no markdown or extra text outside the JSON.
-// PROMPT;
-//         $response = Http::withHeaders([
-//             'Content-Type' => 'application/json',
-//             'x-goog-api-key' => env('GEMINI_API_KEY'),
-//         ])->timeout(90)
-//         ->retry(3, 2000) // retry up to 3 times, 2s apart
-//         ->post('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', [
-//             'contents' => [[
-//                 'parts' => [['text' => $prompt]],
-//             ]],
-//         ]);
-
-//         if ($response->failed()) {
-//             return response()->json([
-//                 'error' => 'Gemini API request failed',
-//                 'details' => $response->json(),
-//                 'status' => $response->status()
-//             ], $response->status());
-//         }
-
-//         $data = $response->json();
-//         $output = $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
-
-//         if (!$output) {
-//             return response()->json(['error' => 'No text generated from Gemini.'], 500);
-//         }
-
-//         // 🧹 Remove markdown code fences (```json ... ```)
-//         $cleanOutput = preg_replace('/^```(json)?\s*|\s*```$/m', '', trim($output));
-
-//         // 🧩 Attempt to decode the cleaned JSON
-//         $decoded = json_decode($cleanOutput, true);
-
-//         if (json_last_error() !== JSON_ERROR_NONE) {
-//             return response()->json([
-//                 'topic' => $topic,
-//                 'context' => $context,
-//                 'raw_output' => $output,
-//                 'error' => 'Invalid JSON structure detected'
-//             ]);
-//         }
-
-//         return response()->json([
-//             'topic' => $topic,
-//             'context' => $context,
-//             'tips' => $decoded,
-//         ]);
-//     }
-
-
     public function generateTips(Request $request)
     {
         // ✅ Step 1: Fetch latest readings by type
@@ -113,17 +26,17 @@ class TipsController extends Controller
             ->get()
             ->keyBy('sensor.type');
 
-        // Extract values
+
         $ph = $readings->get('ph')?->reading_value;
         $tds = $readings->get('tds')?->reading_value;
         $turbidity = $readings->get('turbidity')?->reading_value;
         $ec = $readings->get('ec')?->reading_value;
         $waterLevel = $readings->get('water_level')?->reading_value;
 
-        // ✅ Step 2: Determine water quality
+
         $qualityMsg = $this->evaluateQuality($ph, $tds, $turbidity, $ec);
 
-        // ✅ Step 3: Build contextual prompt for Gemini
+
         $context = [
             'ph' => $ph,
             'tds' => $tds,
@@ -177,7 +90,7 @@ Format the response as **valid JSON** with:
 No markdown, no extra explanations, make the heading 2-3 words only, and in tips, it should not say plant, it should say lettuce, and nutrient solution and words for hydroponics, and the bullet points should be 3 only — just valid JSON.
 PROMPT;
 
-        // ✅ Step 4: Send request to Gemini API
+
         $response = Http::withHeaders([
             'Content-Type' => 'application/json',
             'x-goog-api-key' => env('GEMINI_API_KEY'),
@@ -197,7 +110,7 @@ PROMPT;
             ], $response->status());
         }
 
-        // ✅ Step 5: Clean and decode Gemini’s JSON output
+
         $data = $response->json();
         $output = $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
 
@@ -224,7 +137,7 @@ PROMPT;
         ]);
     }
 
-    // 🧩 Helper: Evaluate water quality
+
     protected function evaluateQuality($ph, $tds, $turbidity, $ec)
     {
         if (is_null($ph) || is_null($tds) || is_null($turbidity) || is_null($ec)) {
