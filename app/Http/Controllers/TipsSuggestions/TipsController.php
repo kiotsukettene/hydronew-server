@@ -52,7 +52,7 @@ class TipsController extends Controller
 You are an expert in hydroponics and sustainable water reuse, helping small farmers and home growers.
 Your job is to give **simple, friendly, and actionable advice** — not technical or scientific explanations.
 
-Here is the user's real-time data from a smart hydroponic lettuce system that uses treated greywater and Microbial Fuel Cells (MFCs):
+Here is the user's real-time data from the water quality sensors before they go in the hydroponic system:
 
 Water Quality Readings:
 - pH: {$ph}
