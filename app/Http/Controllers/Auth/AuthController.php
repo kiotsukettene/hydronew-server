@@ -181,7 +181,7 @@ class AuthController extends Controller
         }
 
         // Rate limit: ensure at least 60 seconds between resends (customize as needed)
-        if ($user->last_otp_sent_at && $user->last_otp_sent_at->diffInSeconds(now()) < 60) {
+        if ($user->last_otp_sent_at && $user->last_otp_sent_at->diffInSeconds(now()) < 30) {
             return response()->json(['message' => 'Please wait before requesting another code.'], 429);
         }
 
