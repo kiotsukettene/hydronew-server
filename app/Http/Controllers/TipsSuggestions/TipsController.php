@@ -12,6 +12,8 @@ class TipsController extends Controller
 {
     public function generateTips(Request $request)
     {
+        $user = $request->user();
+
         // ✅ Step 1: Fetch latest readings by type
         $requiredTypes = ['ph', 'turbidity', 'tds', 'ec', 'water_level'];
 
@@ -130,6 +132,7 @@ PROMPT;
 
         // ✅ Step 6: Return combined data
         return response()->json([
+            'user' => $user->id,
             'quality' => $qualityMsg,
             'tips' => $decoded,
         ]);
