@@ -22,6 +22,13 @@ export function HeroSection() {
   const next = () => setIndex((prev) => (prev + 1) % total);
   const prev = () => setIndex((prev) => (prev - 1 + total) % total);
 
+  const handleLearnMore = () => {
+    const aboutSection = document.querySelector('#about');
+    if (aboutSection) {
+      aboutSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   const left2 = (index - 2 + total) % total;
   const left1 = (index - 1 + total) % total;
   const right1 = (index + 1) % total;
@@ -52,17 +59,20 @@ export function HeroSection() {
     }}
   />
      {/* =========================== Main Content =========================== */}
-     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
       {/* Header */}
-      <div className="text-center">
+      <div className="text-center relative z-10">
         <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-[#1b1b1b] tracking-normal">
           Grow with Nature, <br />Powered by <span style={{ fontFamily: '"Viaoda Libre", serif' }} className="font-semibold text-neutral-700">Technology</span>
         </h1>
         <p className="mt-4 text-base sm:text-lg text-gray-700 max-w-2xl mx-auto px-4">
           HydroNew ensures clean and balanced water for your hydroponic system, helping your plants grow healthier and stronger.
         </p>
-        <button className="mt-8 px-6 sm:px-8 py-3 rounded-full bg-black text-white font-medium hover:bg-neutral-800 transition text-sm sm:text-base">
-          Learn More
+        <button 
+          onClick={handleLearnMore}
+          className="mt-8 px-6 sm:px-8 py-3 rounded-full bg-black text-white font-medium hover:bg-neutral-800 transition text-sm sm:text-base cursor-pointer relative z-10"
+        >
+          Let's dive in
         </button>
       </div>
 
@@ -117,13 +127,13 @@ export function HeroSection() {
         {/* Buttons */}
         <Button
           onClick={prev}
-          className="absolute cursor-pointer left-[5%] sm:left-[15%] md:left-[25%] lg:left-[33%] top-1/2 bg-lime-200 rounded-full"
+          className="absolute cursor-pointer left-[5%] sm:left-[15%] md:left-[25%] lg:left-[33%] top-1/2 bg-lime-200 rounded-full z-20 hover:bg-lime-300 transition-colors"
         >
           <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-black" />
         </Button>
         <Button
           onClick={next}
-          className="absolute cursor-pointer right-[5%] sm:right-[15%] md:right-[25%] lg:right-[33%] top-1/2 bg-lime-200 rounded-full"
+          className="absolute cursor-pointer right-[5%] sm:right-[15%] md:right-[25%] lg:right-[33%] top-1/2 bg-lime-200 rounded-full z-20 hover:bg-lime-300 transition-colors"
         >
           <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-black" />
         </Button>
