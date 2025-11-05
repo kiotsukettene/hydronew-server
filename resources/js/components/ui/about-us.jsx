@@ -40,8 +40,8 @@ export default function AboutSection2() {
   }
 
   return (
-    <section className="pt-24 ">
-      <div className="max-w-7xl mx-auto" ref={heroRef}>
+    <section className="pt-16 sm:pt-20 lg:pt-24 w-full">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" ref={heroRef}>
         <div className="mb-8">
           <header
             className="mb-10 flex flex-col gap-6 border-b border-neutral-900/10 pb-6 transition-colors duration-500 md:flex-row md:items-end md:justify-between dark:border-white/10">
@@ -61,19 +61,17 @@ export default function AboutSection2() {
 
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
           {/* Left Side - Main Text */}
-
           <div className="flex gap-6">
-            {/* Right side - Content */}
-            <div className="flex-1 bg-neutral-800 p-8 rounded-lg ">
-
+            {/* Content */}
+            <div className="flex-1 bg-neutral-800 p-6 sm:p-8 rounded-lg">
               <TimelineContent
                 as="h1"
                 animationNum={0}
                 timelineRef={heroRef}
                 customVariants={revealVariants}
-                className="sm:text-4xl text-2xl md:text-5xl !leading-[110%] font-semibold text-neutral-100 mb-8"
+                className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl !leading-[110%] font-semibold text-neutral-100 mb-6 sm:mb-8"
               >
                 We strive to create{" "}
                 <TimelineContent
@@ -81,7 +79,7 @@ export default function AboutSection2() {
                   animationNum={2}
                   timelineRef={heroRef}
                   customVariants={textVariants}
-                  className="text-green-400 border-2 border-green-300 inline-block xl:h-16 border-dotted px-2 rounded-md"
+                  className="text-green-400 border-2 border-green-300 inline-block h-auto lg:h-12 xl:h-16 border-dotted px-2 rounded-md"
                 >
                   sustainable
                 </TimelineContent>{" "}
@@ -91,20 +89,17 @@ export default function AboutSection2() {
                   animationNum={3}
                   timelineRef={heroRef}
                   customVariants={textVariants}
-                  className="text-emerald-600 border-2 border-emerald-500 inline-block xl:h-16 border-dotted px-2 rounded-md"
+                  className="text-emerald-600 border-2 border-emerald-500 inline-block h-auto lg:h-12 xl:h-16 border-dotted px-2 rounded-md"
                 >
                   future generations.
                 </TimelineContent>
               </TimelineContent>
-
-
             </div>
           </div>
 
-
           {/* Right Side - Supporting Text */}
           <div className="space-y-4">
-            <p className="text-2xl text-black leading-relaxed">
+            <p className="text-lg sm:text-xl lg:text-2xl text-black leading-relaxed">
               HYDRONEW HAS DEVELOPED AN AI-ENABLED
               WASTEWATER TREATMENT SYSTEM THAT TRANSFORMS
               GREYWATER INTO SAFE, REUSABLE WATER FOR

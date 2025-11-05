@@ -1,7 +1,8 @@
-import React from 'react'; 
+import React from 'react'; 
 import { Sheet, SheetContent, SheetFooter } from '@/components/ui/sheet';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { MenuToggle } from '@/components/ui/menu-toggle';
+import { router } from '@inertiajs/react';
 
 export function SimpleHeader() {
 	const [open, setOpen] = React.useState(false);
@@ -9,7 +10,7 @@ export function SimpleHeader() {
 	const links = [
 		{
 			label: 'Features',
-			href: '#',
+			href: '#features',
 		},
 		{
 			label: 'About',
@@ -17,10 +18,36 @@ export function SimpleHeader() {
 		},
 		{
 			label: 'FAQ',
-			href: '#',
+			href: '#faq',
 		},
 		
 	];
+
+	const handleSmoothScroll = (e, href) => {
+		if (href.startsWith('#')) {
+			e.preventDefault();
+			
+			const isHomePage = window.location.pathname === '/';
+			
+			if (isHomePage) {
+				const target = document.querySelector(href);
+				if (target) {
+					target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+				}
+			} else {
+				router.visit('/' + href, {
+					onSuccess: () => {
+						setTimeout(() => {
+							const target = document.querySelector(href);
+							if (target) {
+								target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+							}
+						}, 100);
+					}
+				});
+			}
+		}
+	};
 
     return (
         <header
@@ -28,15 +55,24 @@ export function SimpleHeader() {
             <nav
                 className="mx-auto flex h-12 max-w-fit items-center justify-between gap-8 rounded-full border bg-background/80 px-12 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/70">
 				<div className="flex items-center gap-2">
-<img src="/images/Logo.png" alt="Logo" className="h-6" />
+				<a href="/" aria-label="Go to home">
+					<img src="/images/Logo.png" alt="Logo" className="h-6" />
+				</a>
 				</div>
                 <div className="hidden items-center gap-6 lg:flex">
 					{links.map((link) => (
-						<a className={buttonVariants({ variant: 'ghost' })} href={link.href}>
+						<a 
+							key={link.label}
+							className={buttonVariants({ variant: 'ghost' })} 
+							href={link.href}
+							onClick={(e) => handleSmoothScroll(e, link.href)}
+						>
 							{link.label}
 						</a>
 					))}
-                    <Button size="sm" className='rounded-full'>Download</Button>
+                    <a href="/download">
+						<Button size="sm" className='rounded-full'>Download</Button>
+					</a>
 				</div>
 				<Sheet open={open} onOpenChange={setOpen}>
                     <Button size="icon" variant="outline" className="lg:hidden rounded-full">
@@ -49,18 +85,25 @@ export function SimpleHeader() {
 						<div className="grid gap-y-2 overflow-y-auto px-4 pt-12 pb-5">
 							{links.map((link) => (
 								<a
+									key={link.label}
                                     className={buttonVariants({
 										variant: 'ghost',
 										className: 'justify-start',
 									})}
-                                    href={link.href}>
+                                    href={link.href}
+									onClick={(e) => {
+										handleSmoothScroll(e, link.href);
+										setOpen(false); // Close mobile menu after clicking
+									}}
+								>
 									{link.label}
 								</a>
 							))}
 						</div>
 						<SheetFooter>
-							<Button variant="outline">Sign In</Button>
-							<Button>Get Started</Button>
+							<a href="/download" className="w-full">
+								<Button className="w-full rounded-full">Download App</Button>
+							</a>
 						</SheetFooter>
 					</SheetContent>
 				</Sheet>
