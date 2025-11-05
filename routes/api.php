@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Devices\DeviceController;
 use App\Http\Controllers\Hydroponics\HydroponicSetupController;
 use App\Http\Controllers\Hydroponics\HydroponicYieldController;
+use App\Http\Controllers\TipsSuggestions\TipsController;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
 
@@ -37,7 +38,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Protected routes go here
 
     Route::post('v1/verify-otp', [AuthController::class, 'verifyOtp']);
-    Route::post('v1/resend-otp', [AuthController::class, 'resendOtp'])->middleware('throttle:3,1'); // Limit to 3 requests per minute
+    Route::post('v1/resend-otp', [AuthController::class, 'resendOtp']);
 
     Route::post('v1/logout', [AuthController::class, 'logout']);
 });
@@ -65,4 +66,6 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('v1/hydroponic-yields', [HydroponicYieldController::class, 'index']);
     Route::get('v1/hydroponic-yields/{setup}', [HydroponicYieldController::class, 'show']);
     Route::put('v1/hydroponic-yields/{yield}/update-actual-yield', [HydroponicYieldController::class, 'updateActualYield']);
+
+    Route::get('v1/tips-suggestion', [TipsController::class, 'generateTips']);
 });
