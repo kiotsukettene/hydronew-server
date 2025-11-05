@@ -1,7 +1,8 @@
-import React from 'react'; 
+import React from 'react'; 
 import { Sheet, SheetContent, SheetFooter } from '@/components/ui/sheet';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { MenuToggle } from '@/components/ui/menu-toggle';
+import { router } from '@inertiajs/react';
 
 export function SimpleHeader() {
 	const [open, setOpen] = React.useState(false);
@@ -23,12 +24,27 @@ export function SimpleHeader() {
 	];
 
 	const handleSmoothScroll = (e, href) => {
-		// Only handle anchor links (starting with #)
 		if (href.startsWith('#')) {
 			e.preventDefault();
-			const target = document.querySelector(href);
-			if (target) {
-				target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			
+			const isHomePage = window.location.pathname === '/';
+			
+			if (isHomePage) {
+				const target = document.querySelector(href);
+				if (target) {
+					target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+				}
+			} else {
+				router.visit('/' + href, {
+					onSuccess: () => {
+						setTimeout(() => {
+							const target = document.querySelector(href);
+							if (target) {
+								target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+							}
+						}, 100);
+					}
+				});
 			}
 		}
 	};

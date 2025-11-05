@@ -2,10 +2,12 @@
 import { Download } from "lucide-react"
 import { SimpleHeader } from "@/components/ui/simple-header"
 import { Button } from "@/components/ui/button"
+import { FooterSection } from "@/components/ui/footer-section"
+import { router } from '@inertiajs/react'
 
 export default function AboutUs() {
   const handleDownload = () => {
-    window.open("/downloads/about-us-brochure.pdf", "_blank")
+    router.visit('/download')
   }
 
   return (
@@ -192,6 +194,9 @@ export default function AboutUs() {
           </p>
         </div>
       </section>
+
+      <FooterSection />
+
     </div>
   );
 }
