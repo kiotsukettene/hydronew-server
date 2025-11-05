@@ -15,4 +15,8 @@ class HomeController extends Controller
     public function aboutUs() {
         return Inertia::render('AboutUs');
     }
+
+    public function download() {
+        return Inertia::render('Download');
+    }
 }

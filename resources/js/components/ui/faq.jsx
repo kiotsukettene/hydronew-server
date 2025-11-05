@@ -85,12 +85,12 @@ const FAQ = () => {
   ]
 
   return (
-    <section className="w-full py-10 md:py-16">
-      <div className="mx-auto max-w-4xl px-4">
+    <section id="faq" className="w-full py-12 sm:py-16 lg:py-20">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8 md:mb-10">
           <span className="inline-block rounded-full border px-3 py-1 text-xs font-medium tracking-wide text-neutral-600">Questions</span>
-          <h2 className="mt-4 text-3xl md:text-4xl font-serif tracking-tight text-neutral-900">Got questions? We've got answers</h2>
-          <p className="mt-3 text-neutral-600">Explore our frequently asked questions to find the information you need about our services and process.</p>
+          <h2 className="mt-4 text-2xl sm:text-3xl md:text-4xl font-serif tracking-tight text-neutral-900">Got questions? We've got answers</h2>
+          <p className="mt-3 text-sm sm:text-base text-neutral-600 px-4">Explore our frequently asked questions to find the information you need about our services and process.</p>
         </div>
 
         <div className="relative rounded-2xl border border-neutral-200 shadow-[0_10px_40px_rgba(0,0,0,0.06)] overflow-hidden">

@@ -114,7 +114,8 @@ function FeaturesSection() {
 
   return (
     <div
-      className="relative min-h-screen w-full bg-white text-neutral-900 transition-colors duration-500 dark:bg-black px-0 dark:text-white">
+      id="features"
+      className="relative min-h-screen w-full bg-white text-neutral-900 transition-colors duration-500 dark:bg-black dark:text-white">
       <div className="absolute inset-0 -z-30 overflow-hidden">
         <div
           className="absolute inset-0 [--aurora-base:#ffffff] [--aurora-accent:rgba(148,163,184,0.15)] dark:[--aurora-base:#040404] dark:[--aurora-accent:rgba(59,130,246,0.15)]"
@@ -148,7 +149,7 @@ function FeaturesSection() {
       </div>
       <section
         ref={sectionRef}
-        className={`relative mx-auto max-w-6xl px-6 py-20 motion-safe:opacity-0 ${
+        className={`relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20 motion-safe:opacity-0 ${
           sectionVisible ? "motion-safe:animate-[bento2-intro_0.9s_ease-out_forwards]" : ""
         }`}>
         <header
