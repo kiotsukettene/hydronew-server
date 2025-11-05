@@ -26,7 +26,7 @@ class StoreHydroponicsRequest extends FormRequest
             'number_of_crops' => 'required|integer|min:1',
             'bed_size' => 'required|in:small,medium,large',
             'pump_config' => 'nullable|array',
-            'nutrient_solution' => 'required|string|max:255',
+            'nutrient_solution' => 'nullable|string|max:255',
             'target_ph_min' => 'required|numeric',
             'target_ph_max' => 'required|numeric',
             'target_tds_min' => 'required|integer',

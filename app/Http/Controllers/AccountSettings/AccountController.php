@@ -4,6 +4,7 @@ namespace App\Http\Controllers\AccountSettings;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AccountSettings\UpdateAccountRequest;
+use App\Http\Requests\AccountSettings\UpdatePasswordRequest;
 use App\Models\Device;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -82,11 +83,11 @@ class AccountController extends Controller
     }
 
 
-    public function updatePassword(Request $request, User $user)
+    public function updatePassword(UpdatePasswordRequest $request, User $user)
     {
         $user = $request->user();
 
-        $validated = $request->validate([]);
+        $validated = $request->validated();
 
         if (!Hash::check($validated['current_password'], $user->password)) {
             return response()->json(['message' => 'Current password is incorrect.'], 400);

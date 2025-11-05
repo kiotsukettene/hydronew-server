@@ -16,7 +16,7 @@ class HydroponicSetupController extends Controller
 
         $user = Auth::user();
 
-        $setups = HydroponicSetup::where('user_id', $user->id)->paginate(2);
+        $setups = HydroponicSetup::where('user_id', $user->id)->paginate(10);
 
         return response()->json([
             'status' => 'success',
