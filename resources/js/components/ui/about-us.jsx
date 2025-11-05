@@ -40,7 +40,7 @@ export default function AboutSection2() {
   }
 
   return (
-    <section className="pt-16 sm:pt-20 lg:pt-24 w-full">
+    <section id="about" className="pt-16 sm:pt-20 lg:pt-24 w-full">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" ref={heroRef}>
         <div className="mb-8">
           <header

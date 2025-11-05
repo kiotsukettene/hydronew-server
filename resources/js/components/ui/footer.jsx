@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button"
+import { router } from '@inertiajs/react'
 
 export function Footer({
   logo,
@@ -8,6 +9,36 @@ export function Footer({
   legalLinks,
   copyright
 }) {
+  const handleLinkClick = (e, href) => {
+    // Only handle anchor links (starting with #)
+    if (href.startsWith('#')) {
+      e.preventDefault();
+      
+      const isHomePage = window.location.pathname === '/';
+      
+      if (isHomePage) {
+        // If on home page, just smooth scroll to the section
+        const target = document.querySelector(href);
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      } else {
+        // If on another page, navigate to home page with hash
+        router.visit('/' + href, {
+          onSuccess: () => {
+            // After navigation, scroll to the section
+            setTimeout(() => {
+              const target = document.querySelector(href);
+              if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }, 100);
+          }
+        });
+      }
+    }
+  };
+
   return (
     <footer className="pb-6 pt-16 lg:pb-8 lg:pt-24">
       <div className="px-4 lg:px-8">
@@ -39,7 +70,8 @@ export function Footer({
                 <li key={i} className="my-1 mx-2 shrink-0">
                   <a
                     href={link.href}
-                    className="text-sm text-primary underline-offset-4 hover:underline">
+                    onClick={(e) => handleLinkClick(e, link.href)}
+                    className="text-sm text-primary underline-offset-4 hover:underline cursor-pointer">
                     {link.label}
                   </a>
                 </li>

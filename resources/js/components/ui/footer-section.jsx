@@ -21,9 +21,9 @@ export function FooterSection() {
           },
         ]}
         mainLinks={[
-          { href: "/features", label: "Features" },
+          { href: "#features", label: "Features" },
           { href: "/about-us", label: "About Us" },
-          { href: "/how-it-works", label: "How It Works" },
+          { href: "#how-it-works", label: "How It Works" },
           { href: "/download", label: "Download" },
         ]}
         legalLinks={[

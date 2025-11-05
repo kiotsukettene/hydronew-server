@@ -54,7 +54,7 @@ const timelineData = [
 
 
   return (
-    <div>
+    <div id="how-it-works">
             <RadialOrbitalTimeline timelineData={timelineData} />
 
       
