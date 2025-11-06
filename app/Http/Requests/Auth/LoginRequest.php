@@ -27,7 +27,7 @@ class LoginRequest extends FormRequest
         ];
     }
 
-    public function message(): array {
+    public function messages(): array {
         return [
             'email.exists' => 'User doesn\'t exist.',
         ];
