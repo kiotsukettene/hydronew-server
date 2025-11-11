@@ -20,8 +20,11 @@ class NotificationSeeder extends Seeder
         Notification::create([
             'user_id' => $user->id,
             'device_id' => $device->id,
+            'title' => 'Water Treatment',
             'message' => 'Your water treatment cycle has completed successfully.',
+            'type' => 'info',
             'is_read' => false,
+            'created_at' => now()
         ]);
     }
 }
