@@ -22,7 +22,7 @@ class NotificationSeeder extends Seeder
             'device_id' => $device->id,
             'title' => 'Water Treatment',
             'message' => 'Your water treatment cycle has completed successfully.',
-            'type' => 'info',
+            'type' => 'success',
             'is_read' => false,
             'created_at' => now()
         ]);

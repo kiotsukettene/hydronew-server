@@ -1,13 +1,12 @@
-<?php   
+<?php
 
 namespace App\Http\Controllers\Notification;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Notification\NotificationRequest;
 use Illuminate\Http\Request;
+use App\Http\Requests\Notification\NotificationRequest;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Notification;
-
 
 class NotificationController extends Controller
 {
@@ -34,9 +33,3 @@ class NotificationController extends Controller
         );
     }
 }
-
-
-
-
-
-
