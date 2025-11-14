@@ -22,9 +22,10 @@ class NotificationRequest extends FormRequest {
     public function rules(): array
     {
         return [
+            'device_id' => 'required|integer',
             'title' => 'required|string|max:255',
             'message' => 'required|string',
-            'type' => 'required|string|in:info,warning,error,success',
+            'type' => 'required|string|in:info,warning,success',
             'is_read' => 'nullable|boolean',
             'created_at' => 'nullable|date_format:Y-m-d H:i:s',
         ];
