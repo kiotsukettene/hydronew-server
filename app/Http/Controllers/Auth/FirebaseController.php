@@ -11,10 +11,11 @@ use Kreait\Firebase\Auth as FirebaseAuth;
 class FirebaseController extends Controller
 {
 
-   public function signInWithGoogleAuth(Request $request, FirebaseAuthService $firebaseAuthService)
+public function signInWithGoogleAuth(Request $request, FirebaseAuthService $firebaseAuthService)
 {
     $firebaseToken = $request->input('token');
-    $user = $firebaseAuthService->getUserFromFirebaseToken($firebaseToken);
+
+    $user = $firebaseAuthService->getUserFromFirebaseToken($firebaseToken, $request);
 
     $sanctumToken = $user->createToken('auth_token')->plainTextToken;
 

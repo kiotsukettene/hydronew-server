@@ -17,31 +17,34 @@ class FirebaseAuthService
         $this->auth = $auth;
     }
 
-    public function getUserFromFirebaseToken(string $firebaseIdToken)
-{
-    try {
-        $verifiedIdToken = $this->auth->verifyIdToken($firebaseIdToken);
-        $firebaseUserId = $verifiedIdToken->claims()->get('sub');
-        $firebaseUser = $this->auth->getUser($firebaseUserId);
+    public function getUserFromFirebaseToken(string $firebaseIdToken, $request)
+    {
+        try {
+            $leeway = 10;
+            $verifiedIdToken = $this->auth->verifyIdToken($firebaseIdToken, $checkIfRevoked = true, $leeway);
 
-        if (!$firebaseUser->email) {
-            throw new BadRequestException("The token does not contain a valid email");
+            $firebaseUserId = $verifiedIdToken->claims()->get('sub');
+            $firebaseUser = $this->auth->getUser($firebaseUserId);
+
+            if (!$firebaseUser->email) {
+                throw new BadRequestException("The token does not contain a valid email");
+            }
+
+            return User::firstOrCreate(
+                ['email' => $firebaseUser->email],
+                [
+                    'first_name' => $request->first_name ?? ($firebaseUser->displayName ? explode(' ', $firebaseUser->displayName)[0] : null),
+                    'last_name' => $request->last_name ?? ($firebaseUser->displayName ? explode(' ', $firebaseUser->displayName)[1] ?? '' : null),
+                    'email_verified_at' => now(),
+                ]
+            );
+
+        } catch (FailedToVerifyToken $e) {
+            Log::error($e->getMessage());
+            throw new BadRequestException("The token is invalid");
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            throw new BadRequestException("An error occurred while verifying the token");
         }
-
-        return User::firstOrCreate(
-            ['email' => $firebaseUser->email],
-            [
-                'name' => $firebaseUser->displayName ?? 'Firebase User',
-                'email_verified_at' => now(),
-            ]
-        );
-
-    } catch (FailedToVerifyToken $e) {
-        Log::error($e->getMessage());
-        throw new BadRequestException("The token is invalid");
-    } catch (\Exception $e) {
-        Log::error($e->getMessage());
-        throw new BadRequestException("An error occurred while verifying the token");
     }
-}
 }
