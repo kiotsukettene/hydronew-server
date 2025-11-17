@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Dashboard\DashboardController;
 use App\Http\Controllers\HelpCenter\HelpCenterController;
 use App\Http\Controllers\WaterQuality\WaterMonitoringController;
+use App\Http\Controllers\Notification\NotificationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Devices\DeviceController;
@@ -46,6 +47,10 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     // Routes that require both Sanctum auth and email verification
     Route::get('v1/dashboard', [DashboardController::class, 'index']);
+
+    Route::get('v1/notifications', [NotificationController::class, 'index']);
+    Route::post('v1/create-notifications', [NotificationController::class, 'createNotification']);
+    Route::patch('v1/notifications/{id}/mark-as-read', [NotificationController::class, 'markAsRead']);
 
     Route::get('v1/devices', [DeviceController::class, 'index']);
     Route::post('v1/devices/connect', [DeviceController::class, 'connectDevice']);
