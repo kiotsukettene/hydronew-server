@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Notification;
 
+use App\Events\NotificationBroadcast;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Requests\Notification\NotificationRequest;
@@ -22,7 +23,7 @@ class NotificationController extends Controller
                 'message' => $n->message,
                 'type' => $n->type,
                 'is_read' => $n->is_read,
-                'created_at' => $n->created_at, 
+                'created_at' => $n->created_at,
                 'time' => date('h:i A', strtotime($n->created_at)),
             ];
         });
@@ -35,11 +36,16 @@ class NotificationController extends Controller
         $validated['user_id'] = Auth::id();
         $notification = Notification::create($validated);
 
+        // Format the notification with time before broadcasting
+    $notificationData = $notification->toArray();
+    $notificationData['time'] = date('h:i A', strtotime($notification->created_at));
+        broadcast(new NotificationBroadcast($notification))->toOthers();
+
         return response()->json
         (
             [
-            'message' => 'Notification created', 
-            'data' => $notification
+            'message' => 'Notification created',
+            'data' => $notificationData
         ], 201
         );
     }
@@ -52,7 +58,7 @@ class NotificationController extends Controller
 
         if (!$notification)
         {
-            return response ->json
+            return response() ->json
             (
                 [
                     'message' => 'Notification not found'
