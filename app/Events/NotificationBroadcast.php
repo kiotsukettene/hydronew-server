@@ -8,11 +8,12 @@ use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
-class NotificationBroadcast implements ShouldBroadcast
+class NotificationBroadcast implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -25,7 +26,7 @@ class NotificationBroadcast implements ShouldBroadcast
     public function __construct(Notification $notification)
     {
         $this->notification = $notification;
-        
+
         Log::info('NotificationBroadcast event instantiated', [
             'notification_id' => $notification->id,
             'user_id' => $notification->user_id
@@ -64,9 +65,9 @@ class NotificationBroadcast implements ShouldBroadcast
                 'time' => date('h:i A', strtotime($this->notification->created_at)),
             ]
         ];
-        
+
         Log::info('Broadcasting data', ['data' => $data]);
-        
+
         return $data;
     }
 }
