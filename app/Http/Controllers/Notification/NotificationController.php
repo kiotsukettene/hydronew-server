@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Requests\Notification\NotificationRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use App\Models\Notification;
 
 class NotificationController extends Controller
@@ -36,10 +37,25 @@ class NotificationController extends Controller
         $validated['user_id'] = Auth::id();
         $notification = Notification::create($validated);
 
+        Log::info('Notification created', [
+            'notification_id' => $notification->id,
+            'user_id' => $notification->user_id,
+            'title' => $notification->title
+        ]);
+
         // Format the notification with time before broadcasting
-    $notificationData = $notification->toArray();
-    $notificationData['time'] = date('h:i A', strtotime($notification->created_at));
-        broadcast(new NotificationBroadcast($notification))->toOthers();
+        $notificationData = $notification->toArray();
+        $notificationData['time'] = date('h:i A', strtotime($notification->created_at));
+        
+        // Broadcast to all user connections (not just others)
+        Log::info('Broadcasting notification to channel', [
+            'channel' => 'user.' . $notification->user_id,
+            'event' => 'notification.created'
+        ]);
+        
+        broadcast(new NotificationBroadcast($notification));
+        
+        Log::info('Notification broadcast dispatched successfully');
 
         return response()->json
         (
