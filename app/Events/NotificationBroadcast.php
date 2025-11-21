@@ -42,7 +42,7 @@ class NotificationBroadcast implements ShouldBroadcastNow
     {
         $channel = 'user.' . $this->notification->user_id;
         Log::info('Broadcasting on channel', ['channel' => $channel]);
-        return new PrivateChannel($channel);
+         return [new PrivateChannel($channel)];
     }
 
     public function broadcastAs()
