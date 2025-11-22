@@ -85,6 +85,8 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('v1/notifications', [NotificationController::class, 'index']);
     Route::post('v1/create-notifications', [NotificationController::class, 'createNotification']);
     Route::patch('v1/notifications/{id}/mark-as-read', [NotificationController::class, 'markAsRead']);
+    Route::get('v1/notifications/unread-count', [NotificationController::class, 'getUnreadCount']);
+    Route::post('v1/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
 
     Route::get('v1/devices', [DeviceController::class, 'index']);
     Route::post('v1/devices/connect', [DeviceController::class, 'connectDevice']);

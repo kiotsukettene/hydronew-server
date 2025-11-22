@@ -31,6 +31,16 @@ class NotificationController extends Controller
         return response()->json(['data' => $notifications]);
     }
 
+    public function getUnreadCount()
+    {
+        $user = Auth::user();
+        $unreadCount = Notification::where('user_id', $user->id)
+            ->where('is_read', false)
+            ->count();
+
+        return response()->json(['unread_count' => $unreadCount]);
+    }
+
     public function createNotification(NotificationRequest $request)
     {
         $validated = $request->validated();
@@ -46,15 +56,15 @@ class NotificationController extends Controller
         // Format the notification with time before broadcasting
         $notificationData = $notification->toArray();
         $notificationData['time'] = date('h:i A', strtotime($notification->created_at));
-        
+
         // Broadcast to all user connections (not just others)
         Log::info('Broadcasting notification to channel', [
             'channel' => 'user.' . $notification->user_id,
             'event' => 'notification.created'
         ]);
-        
+
         broadcast(new NotificationBroadcast($notification));
-        
+
         Log::info('Notification broadcast dispatched successfully');
 
         return response()->json
@@ -93,5 +103,19 @@ class NotificationController extends Controller
             ], 200
         );
 
+    }
+      public function markAllAsRead()
+    {
+        $userId = Auth::id();
+
+        Notification::where('user_id', $userId)
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
+
+        return response()->json(
+            [
+                'message' => 'All notifications marked as read'
+            ], 200
+        );
     }
 }
