@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Notification;
 
+use App\Events\NotificationBroadcast;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Requests\Notification\NotificationRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use App\Models\Notification;
 
 class NotificationController extends Controller
@@ -22,11 +24,21 @@ class NotificationController extends Controller
                 'message' => $n->message,
                 'type' => $n->type,
                 'is_read' => $n->is_read,
-                'created_at' => $n->created_at, 
+                'created_at' => $n->created_at,
                 'time' => date('h:i A', strtotime($n->created_at)),
             ];
         });
         return response()->json(['data' => $notifications]);
+    }
+
+    public function getUnreadCount()
+    {
+        $user = Auth::user();
+        $unreadCount = Notification::where('user_id', $user->id)
+            ->where('is_read', false)
+            ->count();
+
+        return response()->json(['unread_count' => $unreadCount]);
     }
 
     public function createNotification(NotificationRequest $request)
@@ -35,11 +47,31 @@ class NotificationController extends Controller
         $validated['user_id'] = Auth::id();
         $notification = Notification::create($validated);
 
+        Log::info('Notification created', [
+            'notification_id' => $notification->id,
+            'user_id' => $notification->user_id,
+            'title' => $notification->title
+        ]);
+
+        // Format the notification with time before broadcasting
+        $notificationData = $notification->toArray();
+        $notificationData['time'] = date('h:i A', strtotime($notification->created_at));
+
+        // Broadcast to all user connections (not just others)
+        Log::info('Broadcasting notification to channel', [
+            'channel' => 'user.' . $notification->user_id,
+            'event' => 'notification.created'
+        ]);
+
+        broadcast(new NotificationBroadcast($notification));
+
+        Log::info('Notification broadcast dispatched successfully');
+
         return response()->json
         (
             [
-            'message' => 'Notification created', 
-            'data' => $notification
+            'message' => 'Notification created',
+            'data' => $notificationData
         ], 201
         );
     }
@@ -52,7 +84,7 @@ class NotificationController extends Controller
 
         if (!$notification)
         {
-            return response ->json
+            return response() ->json
             (
                 [
                     'message' => 'Notification not found'
@@ -71,5 +103,19 @@ class NotificationController extends Controller
             ], 200
         );
 
+    }
+      public function markAllAsRead()
+    {
+        $userId = Auth::id();
+
+        Notification::where('user_id', $userId)
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
+
+        return response()->json(
+            [
+                'message' => 'All notifications marked as read'
+            ], 200
+        );
     }
 }

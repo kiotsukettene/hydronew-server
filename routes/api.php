@@ -46,11 +46,47 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     // Routes that require both Sanctum auth and email verification
+
+     Route::post('v1/broadcasting/auth', function (Request $request) {
+    \Log::info('=== Broadcasting Auth Request ===');
+    \Log::info('Socket ID: ' . $request->input('socket_id'));
+    \Log::info('Channel Name: ' . $request->input('channel_name'));
+    \Log::info('Raw Channel Name: ' . json_encode($request->input('channel_name')));
+    \Log::info('User: ' . ($request->user() ? $request->user()->id : 'Not authenticated'));
+
+    // Check if channel name starts with 'private-'
+    $channelName = $request->input('channel_name');
+    if (!str_starts_with($channelName, 'private-')) {
+        \Log::error('Channel name does not start with private-');
+    }
+
+    // Extract the actual channel name without prefix
+    $cleanChannelName = str_replace('private-', '', $channelName);
+    \Log::info('Clean channel name: ' . $cleanChannelName);
+
+    if (!$request->user()) {
+        \Log::error('No authenticated user found');
+        return response()->json(['error' => 'Unauthenticated'], 403);
+    }
+
+    try {
+        $result = Broadcast::auth($request);
+        \Log::info('Broadcasting auth successful');
+        return $result;
+    } catch (\Exception $e) {
+        \Log::error('Broadcasting auth failed: ' . $e->getMessage());
+        \Log::error('Stack trace: ' . $e->getTraceAsString());
+        return response()->json(['error' => $e->getMessage()], 403);
+    }
+});
+
     Route::get('v1/dashboard', [DashboardController::class, 'index']);
 
     Route::get('v1/notifications', [NotificationController::class, 'index']);
     Route::post('v1/create-notifications', [NotificationController::class, 'createNotification']);
     Route::patch('v1/notifications/{id}/mark-as-read', [NotificationController::class, 'markAsRead']);
+    Route::get('v1/notifications/unread-count', [NotificationController::class, 'getUnreadCount']);
+    Route::post('v1/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
 
     Route::get('v1/devices', [DeviceController::class, 'index']);
     Route::post('v1/devices/connect', [DeviceController::class, 'connectDevice']);
