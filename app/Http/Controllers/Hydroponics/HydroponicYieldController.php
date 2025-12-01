@@ -115,23 +115,33 @@ class HydroponicYieldController extends Controller
         }
 
         if ($device) {
-            // Check if health status changed to moderate or poor
-            if (isset($validated['health_status']) && 
-                in_array($validated['health_status'], ['moderate', 'poor']) && 
-                $oldHealthStatus !== $validated['health_status']) {
+            // Check if health status changed
+            if (isset($validated['health_status']) && $oldHealthStatus !== $validated['health_status']) {
                 
-                $healthType = $validated['health_status'] === 'poor' ? 'warning' : 'warning';
-                $healthMessage = $validated['health_status'] === 'poor' 
-                    ? 'Your crop health status has deteriorated to POOR. Immediate attention required!' 
-                    : 'Your crop health status has changed to MODERATE. Please check your setup.';
-                
-                $this->createNotification(
-                    $user->id,
-                    $device->id,
-                    'Health Alert: ' . $setup->crop_name,
-                    $healthMessage,
-                    $healthType
-                );
+                if ($validated['health_status'] === 'good') {
+                    // Health improved to good
+                    $this->createNotification(
+                        $user->id,
+                        $device->id,
+                        'Health Improved: ' . $setup->crop_name,
+                        'Great news! Your crop health status has improved to GOOD. Keep up the good work!',
+                        'success'
+                    );
+                } elseif (in_array($validated['health_status'], ['moderate', 'poor'])) {
+                    // Health deteriorated to moderate or poor
+                    $healthType = $validated['health_status'] === 'poor' ? 'warning' : 'warning';
+                    $healthMessage = $validated['health_status'] === 'poor' 
+                        ? 'Your crop health status has deteriorated to POOR. Immediate attention required!' 
+                        : 'Your crop health status has changed to MODERATE. Please check your setup.';
+                    
+                    $this->createNotification(
+                        $user->id,
+                        $device->id,
+                        'Health Alert: ' . $setup->crop_name,
+                        $healthMessage,
+                        $healthType
+                    );
+                }
             }
 
             // Check if harvest is near (within 7 days)
