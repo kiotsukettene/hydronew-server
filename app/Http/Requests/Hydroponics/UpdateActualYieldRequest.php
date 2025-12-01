@@ -23,6 +23,7 @@ class UpdateActualYieldRequest extends FormRequest
     {
         return [
             'actual_yield' => 'required|numeric|min:0',
+            'harvest_date' => 'nullable|date',
             'notes' => 'nullable|string',
         ];
     }
