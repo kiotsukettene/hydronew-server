@@ -34,7 +34,6 @@ class HydroponicYieldController extends Controller
                     $daysLeft = max(0, (int) $now->diffInDays($harvestDate, false));
                 }
 
-
                 return [
                     'id' => $yield->id,
                     'crop_name' => $setup->crop_name,
