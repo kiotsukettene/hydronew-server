@@ -106,6 +106,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
 
     Route::get('v1/hydroponic-yields', [HydroponicYieldController::class, 'index']);
     Route::get('v1/hydroponic-yields/{setup}', [HydroponicYieldController::class, 'show']);
+    Route::put('v1/hydroponic-yields/{yield}', [HydroponicYieldController::class, 'update']);
     Route::put('v1/hydroponic-yields/{yield}/update-actual-yield', [HydroponicYieldController::class, 'updateActualYield']);
 
     Route::get('v1/tips-suggestion', [TipsController::class, 'generateTips']);
