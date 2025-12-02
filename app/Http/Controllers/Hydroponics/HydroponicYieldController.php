@@ -16,9 +16,20 @@ class HydroponicYieldController extends Controller
         $user = $request->user();
 
 
-        $setups = HydroponicSetup::where('user_id', $user->id)
-            ->with('hydroponic_yields')
-            ->get();
+       $setups = HydroponicSetup::where('user_id', $user->id)
+        ->whereHas('hydroponic_yields', function ($q) {
+            $q->where('harvest_status', 'harvested');
+        })
+        ->with(['hydroponic_yields' => function ($q) {
+            $q->where('harvest_status', 'harvested')
+              ->select('id', 'hydroponic_setup_id', 'harvest_date', 'growth_stage', 'health_status', 'harvest_status');
+        }])
+        ->withCount([
+        'hydroponic_yields as harvested_yields_count' => function ($q) {
+            $q->where('harvest_status', 'harvested');
+        }
+    ])
+        ->get();
 
 
         $data = $setups->flatMap(function ($setup) {
@@ -50,6 +61,7 @@ class HydroponicYieldController extends Controller
 
         return response()->json([
             'status' => 'success',
+            'harvested_yield_count' => $setups->sum('harvested_yields_count'),
             'data' => $data->values(),
         ]);
     }
@@ -93,7 +105,7 @@ class HydroponicYieldController extends Controller
 
         $yield->update([
             'actual_yield' => $validated['actual_yield'],
-            'harvest_date' => $validated['harvest_date'],
+            'harvest_date' => now(),
             'harvest_status' => 'harvested',
             'notes' => $validated['notes'] ?? null,
         ]);
