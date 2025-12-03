@@ -30,6 +30,7 @@ return new class extends Migration
 
             // Other details
             $table->enum('harvest_status', ['not_harvested', 'harvested', 'partial'])->nullable()->default('not_harvested');
+            $table->date('harvest_date')->nullable();
             $table->string('water_amount', 50)->nullable();
             $table->dateTime('setup_date')->nullable();
             $table->enum('status', ['active', 'inactive', 'maintenance'])->nullable()->default('active');
