@@ -33,22 +33,20 @@ class HydroponicYield extends Model
 
     protected $casts = [
         'hydroponic_setup_id' => 'integer',
-        'predicted_yield' => 'float',
-        'actual_yield' => 'float',
-        'system_generated' => 'boolean',
-        'harvest_date' => 'datetime',
+        'total_weight' => 'float',
+        'total_count' => 'integer',
+        'harvest_date' => 'date',
+        'is_archived' => 'boolean',
     ];
 
     protected $fillable = [
         'hydroponic_setup_id',
-        'harvest_status',
-        'growth_stage',
-        'health_status',
-        'predicted_yield',
-        'actual_yield',
+        'total_weight',
+        'total_count',
+        'quality_grade',
         'harvest_date',
-        'system_generated',
         'notes',
+        'is_archived',
     ];
 
     public function hydroponic_setup()

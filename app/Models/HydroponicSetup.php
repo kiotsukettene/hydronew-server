@@ -65,4 +65,9 @@ class HydroponicSetup extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function logs()
+    {
+        return $this->hasMany(HydroponicSetupLog::class, 'hydroponic_setup_id');
+    }
 }
