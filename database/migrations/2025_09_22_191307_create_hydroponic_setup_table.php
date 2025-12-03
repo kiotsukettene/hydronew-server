@@ -29,9 +29,11 @@ return new class extends Migration
             $table->decimal('target_tds_max', 6, 2);
 
             // Other details
+            $table->enum('harvest_status', ['not_harvested', 'harvested', 'partial'])->nullable()->default('not_harvested');
             $table->string('water_amount', 50)->nullable();
             $table->dateTime('setup_date')->nullable();
             $table->enum('status', ['active', 'inactive', 'maintenance'])->nullable()->default('active');
+            $table->boolean('is_archived')->default(false);
 
 
             $table->timestamps();
