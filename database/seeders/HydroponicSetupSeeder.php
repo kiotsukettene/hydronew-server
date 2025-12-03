@@ -17,22 +17,19 @@ class HydroponicSetupSeeder extends Seeder
         $user = User::first();
         HydroponicSetup::create([
             'user_id' => $user->id,
-            'crop_name' => 'Lettuce',
-            'number_of_crops' => 30,
+            'crop_name' => 'Olmetie',
+            'number_of_crops' => 50,
             'bed_size' => 'medium',
-            'pump_config' => json_encode([
-                'pump_speed' => 'medium',
-                'schedule' => '6h_on_2h_off',
-                'backup_pump' => true,
-            ]),
-            'nutrient_solution' => 'HydroGro Mix A+B',
+            'pump_config' => json_encode(['pump1' => 'on', 'pump2' => 'off']),
+            'nutrient_solution' => 'NPK 20-20-20',
             'target_ph_min' => 5.5,
             'target_ph_max' => 6.5,
-            'target_tds_min' => 800,
-            'target_tds_max' => 1000,
+            'target_tds_min' => 400,
+            'target_tds_max' => 800,
             'water_amount' => '20L',
-            'setup_date' => now(),
+            'setup_date' => now()->subDays(10),
             'status' => 'active',
+            'is_archived' => false
         ]);
     }
 };

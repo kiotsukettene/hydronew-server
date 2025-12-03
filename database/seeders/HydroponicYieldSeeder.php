@@ -17,14 +17,12 @@ class HydroponicYieldSeeder extends Seeder
         $hydroponicSetup = HydroponicSetup::first();
         HydroponicYield::create([
             'hydroponic_setup_id' => $hydroponicSetup->id,
-            'harvest_status' => 'not_harvested',
-            'growth_stage' => 'seedling',
-            'health_status' => 'good',
-            'predicted_yield' => 45.75,
-            'actual_yield' => 10.20,
-            'harvest_date' => now()->subDays(3),
-            'system_generated' => false,
-            'notes' => 'Lettuce seedlings are healthy and under optimal pH range.',
+                'total_weight' => rand(2000, 5000), // grams
+                'total_count' => rand(40, 50),
+                'quality_grade' => 'selling',
+                'harvest_date' => now(),
+                'notes' => 'Healthy harvest.',
+                'is_archived' => false
         ]);
     }
 }
