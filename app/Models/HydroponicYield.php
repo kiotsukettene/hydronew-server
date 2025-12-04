@@ -35,7 +35,6 @@ class HydroponicYield extends Model
         'hydroponic_setup_id' => 'integer',
         'total_weight' => 'float',
         'total_count' => 'integer',
-        'harvest_date' => 'date',
         'is_archived' => 'boolean',
     ];
 
@@ -44,7 +43,6 @@ class HydroponicYield extends Model
         'total_weight',
         'total_count',
         'quality_grade',
-        'harvest_date',
         'notes',
         'is_archived',
     ];

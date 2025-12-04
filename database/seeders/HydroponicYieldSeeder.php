@@ -20,7 +20,6 @@ class HydroponicYieldSeeder extends Seeder
                 'total_weight' => rand(2000, 5000), // grams
                 'total_count' => rand(40, 50),
                 'quality_grade' => 'selling',
-                'harvest_date' => now(),
                 'notes' => 'Healthy harvest.',
                 'is_archived' => false
         ]);
