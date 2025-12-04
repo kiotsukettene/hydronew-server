@@ -5,6 +5,7 @@ namespace App\Http\Requests\Hydroponics;
 use App\Models\HydroponicSetup;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Validator;
 
 class StoreYieldRequest extends FormRequest
 {
@@ -29,10 +30,36 @@ class StoreYieldRequest extends FormRequest
 
         return [
             'total_count' => "required|integer|min:0|max:{$maxCrops}",
-            'quality_grade' => 'required|in:selling,consumption,disposal',
             'total_weight' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string|max:1000',
+            
+            // Grades array validation
+            'grades' => 'required|array|min:1',
+            'grades.*.grade' => 'required|in:selling,consumption',
+            'grades.*.count' => 'required|integer|min:0',
+            'grades.*.weight' => 'nullable|numeric|min:0',
         ];
+    }
+
+    /**
+     * Configure the validator instance.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            $totalCount = $this->input('total_count', 0);
+            $grades = $this->input('grades', []);
+            
+            // Calculate sum of grades counts
+            $gradesSum = collect($grades)->sum('count');
+            
+            if ($gradesSum !== (int) $totalCount) {
+                $validator->errors()->add(
+                    'grades',
+                    "The sum of grades counts ({$gradesSum}) must equal the total count ({$totalCount})."
+                );
+            }
+        });
     }
 
     /**
@@ -48,9 +75,13 @@ class StoreYieldRequest extends FormRequest
         return [
             'total_count.required' => 'The total count of harvested crops is required.',
             'total_count.max' => "The total count cannot exceed the number of crops in the setup ({$maxCrops}).",
-            'quality_grade.required' => 'The quality grade is required.',
-            'quality_grade.in' => 'The quality grade must be one of: selling, consumption, or disposal.',
+            'grades.required' => 'The grades breakdown is required.',
+            'grades.min' => 'At least one grade entry is required.',
+            'grades.*.grade.required' => 'Each grade entry must have a grade type.',
+            'grades.*.grade.in' => 'Grade type must be either: selling or consumption.',
+            'grades.*.count.required' => 'Each grade entry must have a count.',
+            'grades.*.count.integer' => 'Grade count must be an integer.',
+            'grades.*.count.min' => 'Grade count cannot be negative.',
         ];
     }
 }
-

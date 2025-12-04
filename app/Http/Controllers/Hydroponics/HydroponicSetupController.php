@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Hydroponics\StoreHydroponicsRequest;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
+use App\Models\HydroponicYieldGrade;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
@@ -110,11 +111,21 @@ class HydroponicSetupController extends Controller
             ], 400);
         }
 
-        // Check if required yield fields are filled
-        if (is_null($yield->total_count) || is_null($yield->quality_grade)) {
+        // Check if required yield fields are filled (total_count and grades)
+        if (is_null($yield->total_count)) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Cannot mark as harvested. Yield record is missing required fields (total_count, quality_grade).',
+                'message' => 'Cannot mark as harvested. Yield record is missing total count.',
+            ], 400);
+        }
+
+        // Check if grades exist for this yield
+        $gradesCount = HydroponicYieldGrade::where('hydroponic_yield_id', $yield->id)->count();
+
+        if ($gradesCount === 0) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Cannot mark as harvested. Yield record is missing grade breakdown.',
             ], 400);
         }
 
@@ -133,6 +144,9 @@ class HydroponicSetupController extends Controller
             $harvestDate = Carbon::parse($setup->harvest_date);
             $daysLeft = max(0, (int) $now->diffInDays($harvestDate, false));
         }
+
+        // Load yield with grades for response
+        $yield->load('grades');
 
         return response()->json([
             'status' => 'success',

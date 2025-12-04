@@ -19,7 +19,6 @@ class HydroponicYieldSeeder extends Seeder
             'hydroponic_setup_id' => $hydroponicSetup->id,
                 'total_weight' => rand(2000, 5000), // grams
                 'total_count' => rand(40, 50),
-                'quality_grade' => 'selling',
                 'notes' => 'Healthy harvest.',
                 'is_archived' => false
         ]);

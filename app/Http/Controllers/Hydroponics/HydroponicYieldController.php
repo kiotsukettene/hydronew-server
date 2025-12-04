@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Hydroponics\StoreYieldRequest;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
+use App\Models\HydroponicYieldGrade;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class HydroponicYieldController extends Controller
@@ -103,38 +105,69 @@ class HydroponicYieldController extends Controller
     {
         $validated = $request->validated();
 
-        // Check if yield already exists for this setup
-        $existingYield = HydroponicYield::where('hydroponic_setup_id', $setup->id)->first();
+        // Calculate disposal count (crops not harvested)
+        $disposalCount = $setup->number_of_crops - $validated['total_count'];
 
-        if ($existingYield) {
-            // Update existing yield
-            $existingYield->update([
-                'total_count' => $validated['total_count'],
-                'quality_grade' => $validated['quality_grade'],
-                'total_weight' => $validated['total_weight'] ?? null,
-                'notes' => $validated['notes'] ?? null,
+        return DB::transaction(function () use ($validated, $setup, $disposalCount) {
+            // Check if yield already exists for this setup
+            $existingYield = HydroponicYield::where('hydroponic_setup_id', $setup->id)->first();
+
+            if ($existingYield) {
+                // Update existing yield
+                $existingYield->update([
+                    'total_count' => $validated['total_count'],
+                    'total_weight' => $validated['total_weight'] ?? null,
+                    'notes' => $validated['notes'] ?? null,
+                ]);
+
+                // Delete existing grades and recreate
+                $existingYield->grades()->delete();
+                $yield = $existingYield;
+                $isUpdate = true;
+            } else {
+                // Create new yield record
+                $yield = HydroponicYield::create([
+                    'hydroponic_setup_id' => $setup->id,
+                    'total_count' => $validated['total_count'],
+                    'total_weight' => $validated['total_weight'] ?? null,
+                    'notes' => $validated['notes'] ?? null,
+                ]);
+                $isUpdate = false;
+            }
+
+            // Create grade records from request
+            foreach ($validated['grades'] as $gradeData) {
+                HydroponicYieldGrade::create([
+                    'hydroponic_yield_id' => $yield->id,
+                    'grade' => $gradeData['grade'],
+                    'count' => $gradeData['count'],
+                    'weight' => $gradeData['weight'] ?? null,
+                ]);
+            }
+
+            // Automatically create disposal grade record
+            HydroponicYieldGrade::create([
+                'hydroponic_yield_id' => $yield->id,
+                'grade' => 'disposal',
+                'count' => $disposalCount,
+                'weight' => null,
             ]);
+
+            // Load grades relationship for response
+            $yield->load('grades');
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Yield data updated successfully.',
-                'data' => $existingYield->fresh(),
-            ]);
-        }
-
-        // Create new yield record
-        $yield = HydroponicYield::create([
-            'hydroponic_setup_id' => $setup->id,
-            'total_count' => $validated['total_count'],
-            'quality_grade' => $validated['quality_grade'],
-            'total_weight' => $validated['total_weight'] ?? null,
-            'notes' => $validated['notes'] ?? null,
-        ]);
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Yield data stored successfully.',
-            'data' => $yield,
-        ], 201);
+                'message' => $isUpdate ? 'Yield data updated successfully.' : 'Yield data stored successfully.',
+                'data' => [
+                    'yield' => $yield,
+                    'summary' => [
+                        'total_crops_in_setup' => $setup->number_of_crops,
+                        'total_harvested' => $validated['total_count'],
+                        'total_disposed' => $disposalCount,
+                    ],
+                ],
+            ], $isUpdate ? 200 : 201);
+        });
     }
 }
