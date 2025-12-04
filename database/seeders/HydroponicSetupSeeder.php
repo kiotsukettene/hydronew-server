@@ -27,6 +27,7 @@ class HydroponicSetupSeeder extends Seeder
             'target_tds_min' => 400,
             'target_tds_max' => 800,
             'water_amount' => '20L',
+            'harvest_date' => now()->addDays(35),
             'setup_date' => now()->subDays(10),
             'status' => 'active',
             'is_archived' => false

@@ -18,7 +18,7 @@ return new class extends Migration
             // Crop and setup configuration
             $table->string('crop_name', 100);
             $table->integer('number_of_crops')->default(0);
-            $table->enum('bed_size', ['small', 'medium', 'large']);
+            $table->enum('bed_size', ['small', 'medium', 'large', 'custom']);
             $table->json('pump_config')->nullable();
             $table->string('nutrient_solution', 255)->nullable();
 
