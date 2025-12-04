@@ -19,7 +19,7 @@ class HydroponicSetupController extends Controller
         ->where('harvest_status', '!=', 'harvested')
         ->where('is_archived', false)
         ->where('status', 'active')
-        ->paginate(10);
+        ->paginate(5);
 
         return response()->json([
             'status' => 'success',

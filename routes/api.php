@@ -102,6 +102,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('v1/manage-account/login-history', [AccountController::class, 'loginHistory']);
 
     Route::get('v1/hydroponic-setups', [HydroponicSetupController::class, 'index']);
+    Route::get('v1/hydroponic-setups/{setup}', [HydroponicSetupController::class, 'show']);
     Route::post('v1/hydroponic-setups', [HydroponicSetupController::class, 'store']);
 
     Route::get('v1/hydroponic-yields', [HydroponicYieldController::class, 'index']);
