@@ -17,7 +17,6 @@ return new class extends Migration {
             
             $table->decimal('total_weight', 10, 2)->nullable(); // grams or kg
             $table->integer('total_count')->nullable(); // e.g., number of heads
-            $table->enum('quality_grade', ['selling', 'consumption', 'disposal'])->nullable();
             $table->text('notes')->nullable();
 
             // for archive feature
