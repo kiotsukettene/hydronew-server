@@ -42,7 +42,6 @@ class HydroponicYield extends Model
         'hydroponic_setup_id',
         'total_weight',
         'total_count',
-        'quality_grade',
         'notes',
         'is_archived',
     ];
@@ -51,4 +50,9 @@ class HydroponicYield extends Model
     {
         return $this->belongsTo(HydroponicSetup::class, 'hydroponic_setup_id');
     }
+
+    public function grades()
+{
+    return $this->hasMany(HydroponicYieldGrade::class);
+}
 }
