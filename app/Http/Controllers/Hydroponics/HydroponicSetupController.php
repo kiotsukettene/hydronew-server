@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Hydroponics;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Hydroponics\StoreHydroponicsRequest;
 use App\Models\HydroponicSetup;
+use App\Models\HydroponicYield;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
@@ -79,5 +80,68 @@ class HydroponicSetupController extends Controller
                 'days_left' => $daysLeft,
             ]),
         ], 201);
+    }
+
+    public function markAsHarvested(HydroponicSetup $setup)
+    {
+        // Check if setup belongs to the authenticated user
+        if ($setup->user_id !== Auth::id()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized. This setup does not belong to you.',
+            ], 403);
+        }
+
+        // Check if setup is already harvested
+        if ($setup->harvest_status === 'harvested') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'This setup has already been marked as harvested.',
+            ], 400);
+        }
+
+        // Check if yield record exists for this setup
+        $yield = HydroponicYield::where('hydroponic_setup_id', $setup->id)->first();
+
+        if (!$yield) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Cannot mark as harvested. Please fill in the yield data first.',
+            ], 400);
+        }
+
+        // Check if required yield fields are filled
+        if (is_null($yield->total_count) || is_null($yield->quality_grade)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Cannot mark as harvested. Yield record is missing required fields (total_count, quality_grade).',
+            ], 400);
+        }
+
+        // Update harvest_status to 'harvested'
+        $setup->update([
+            'harvest_status' => 'harvested',
+        ]);
+
+        // Calculate plant_age and days_left for response
+        $setupDate = Carbon::parse($setup->setup_date);
+        $now = Carbon::now();
+        $plantAge = (int) $setupDate->diffInDays($now);
+
+        $daysLeft = 0;
+        if ($setup->harvest_date) {
+            $harvestDate = Carbon::parse($setup->harvest_date);
+            $daysLeft = max(0, (int) $now->diffInDays($harvestDate, false));
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Setup marked as harvested successfully.',
+            'data' => array_merge($setup->fresh()->toArray(), [
+                'plant_age' => $plantAge,
+                'days_left' => $daysLeft,
+                'yield' => $yield,
+            ]),
+        ]);
     }
 }

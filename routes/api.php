@@ -103,11 +103,12 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
 
     Route::get('v1/hydroponic-setups', [HydroponicSetupController::class, 'index']);
     Route::get('v1/hydroponic-setups/{setup}', [HydroponicSetupController::class, 'show']);
-    Route::post('v1/hydroponic-setups', [HydroponicSetupController::class, 'store']);
+    Route::post('v1/hydroponic-setups/store', [HydroponicSetupController::class, 'store']);
+    Route::post('v1/hydroponic-setups/{setup}/mark-harvested', [HydroponicSetupController::class, 'markAsHarvested']);
 
     Route::get('v1/hydroponic-yields', [HydroponicYieldController::class, 'index']);
     Route::get('v1/hydroponic-yields/{setup}', [HydroponicYieldController::class, 'show']);
-    Route::put('v1/hydroponic-yields/{yield}/update-actual-yield', [HydroponicYieldController::class, 'updateActualYield']);
+    Route::post('v1/hydroponic-yields/{setup}/store', [HydroponicYieldController::class, 'storeYield']);
 
     Route::get('v1/tips-suggestion', [TipsController::class, 'generateTips']);
 });

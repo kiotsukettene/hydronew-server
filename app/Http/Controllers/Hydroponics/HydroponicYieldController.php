@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Hydroponics;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Hydroponics\UpdateActualYieldRequest;
+use App\Http\Requests\Hydroponics\StoreYieldRequest;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
 use Illuminate\Http\Request;
@@ -99,20 +99,42 @@ class HydroponicYieldController extends Controller
         ]);
     }
 
-    public function updateActualYield(UpdateActualYieldRequest $request, HydroponicYield $yield)
+    public function storeYield(StoreYieldRequest $request, HydroponicSetup $setup)
     {
         $validated = $request->validated();
 
-        $yield->update([
-            'actual_yield' => $validated['actual_yield'],
-            'harvest_date' => now(),
-            'harvest_status' => 'harvested',
+        // Check if yield already exists for this setup
+        $existingYield = HydroponicYield::where('hydroponic_setup_id', $setup->id)->first();
+
+        if ($existingYield) {
+            // Update existing yield
+            $existingYield->update([
+                'total_count' => $validated['total_count'],
+                'quality_grade' => $validated['quality_grade'],
+                'total_weight' => $validated['total_weight'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Yield data updated successfully.',
+                'data' => $existingYield->fresh(),
+            ]);
+        }
+
+        // Create new yield record
+        $yield = HydroponicYield::create([
+            'hydroponic_setup_id' => $setup->id,
+            'total_count' => $validated['total_count'],
+            'quality_grade' => $validated['quality_grade'],
+            'total_weight' => $validated['total_weight'] ?? null,
             'notes' => $validated['notes'] ?? null,
         ]);
 
         return response()->json([
-            'message' => 'Actual yield and harvest date recorded successfully.',
+            'status' => 'success',
+            'message' => 'Yield data stored successfully.',
             'data' => $yield,
-        ]);
+        ], 201);
     }
 }
