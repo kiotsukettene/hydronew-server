@@ -38,6 +38,8 @@ class HydroponicSetup extends Model
         'target_tds_min' => 'float',
         'target_tds_max' => 'float',
         'setup_date' => 'datetime',
+        'harvest_date' => 'date',
+        'is_archived' => 'boolean',
     ];
 
     protected $fillable = [
@@ -53,7 +55,10 @@ class HydroponicSetup extends Model
         'target_tds_max',
         'water_amount',
         'setup_date',
+        'harvest_date',
+        'harvest_status',
         'status',
+        'is_archived',
     ];
 
     public function hydroponic_yields()
