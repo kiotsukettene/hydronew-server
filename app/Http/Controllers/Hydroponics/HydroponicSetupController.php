@@ -34,14 +34,14 @@ class HydroponicSetupController extends Controller
         $now = Carbon::now();
 
         // Calculate plant_age (continues even after harvest date)
-        $plantAge = (int) $setupDate->diffInDays($now);
+            $plantAge = (int) $setupDate->diffInDays($now);
 
         // Calculate days_left (0 if harvest date has passed)
         $daysLeft = 0;
         if ($setup->harvest_date) {
             $harvestDate = Carbon::parse($setup->harvest_date);
             $daysLeft = max(0, (int) $now->diffInDays($harvestDate, false));
-        }
+            }
 
         return response()->json([
             'status' => 'success',
@@ -129,9 +129,10 @@ class HydroponicSetupController extends Controller
             ], 400);
         }
 
-        // Update harvest_status to 'harvested'
+        // Update harvest_status to 'harvested' and set harvest_date
         $setup->update([
             'harvest_status' => 'harvested',
+            'harvest_date' => now()->toDateString(),
         ]);
 
         // Calculate plant_age and days_left for response
