@@ -10,6 +10,7 @@ use App\Models\HydroponicYieldGrade;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class HydroponicYieldController extends Controller
 {
@@ -87,7 +88,7 @@ class HydroponicYieldController extends Controller
 
     /**
      * Calculate statistics for harvested setups
-     * 
+     *
      * @param \Illuminate\Database\Eloquent\Collection $setups
      * @return array
      */
@@ -100,7 +101,7 @@ class HydroponicYieldController extends Controller
 
         foreach ($setups as $setup) {
             $yield = $setup->hydroponic_yields->first();
-            
+
             if ($yield && $yield->grades && $yield->grades->count() > 0) {
                 foreach ($yield->grades as $grade) {
                     $count = $grade->count ?? 0;
