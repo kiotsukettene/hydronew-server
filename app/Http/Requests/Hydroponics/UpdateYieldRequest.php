@@ -4,7 +4,7 @@ namespace App\Http\Requests\Hydroponics;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class UpdateActualYieldRequest extends FormRequest
+class UpdateYieldRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -22,9 +22,13 @@ class UpdateActualYieldRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'actual_yield' => 'required|numeric|min:0',
+            'health_status' => 'nullable|string|in:good,moderate,poor',
+            'growth_stage' => 'nullable|string|in:seedling,vegetative,flowering,harvest-ready',
+            'harvest_status' => 'nullable|string|in:not_harvested,harvested,partial',
+            'predicted_yield' => 'nullable|numeric|min:0',
             'harvest_date' => 'nullable|date',
             'notes' => 'nullable|string',
         ];
     }
 }
+
