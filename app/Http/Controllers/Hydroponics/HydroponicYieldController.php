@@ -3,13 +3,12 @@
 namespace App\Http\Controllers\Hydroponics;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Hydroponics\UpdateActualYieldRequest;
-use App\Http\Requests\Hydroponics\UpdateYieldRequest;
+use App\Http\Requests\Hydroponics\StoreYieldRequest;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
-use App\Models\Notification;
-use App\Events\NotificationBroadcast;
+use App\Models\HydroponicYieldGrade;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -19,43 +18,114 @@ class HydroponicYieldController extends Controller
     {
         $user = $request->user();
 
+        // Get filter parameters
+        $filters = $request->only(['search', 'month', 'date_type']);
 
-        $setups = HydroponicSetup::where('user_id', $user->id)
-            ->with('hydroponic_yields')
+        // Get all harvested setups for the user with filters applied
+        $setupsQuery = HydroponicSetup::where('user_id', $user->id)
+            ->harvested()
+            ->filter($filters)
+            ->with(['hydroponic_yields.grades']);
+
+        // Get all setups for statistics calculation (before pagination)
+        $allHarvestedSetups = HydroponicSetup::where('user_id', $user->id)
+            ->harvested()
+            ->with(['hydroponic_yields.grades'])
             ->get();
 
+        // Calculate statistics
+        $statistics = $this->calculateStatistics($allHarvestedSetups);
 
-        $data = $setups->flatMap(function ($setup) {
-            return $setup->hydroponic_yields->map(function ($yield) use ($setup) {
+        // Paginate the filtered results
+        $setups = $setupsQuery->paginate($request->get('per_page', 10));
+
+        // Transform data with duration calculation
+        $data = $setups->getCollection()->map(function ($setup) {
+            $yield = $setup->hydroponic_yields->first();
+
+            // Calculate duration: days from setup_date to harvest_date
+            $duration = 0;
+            if ($setup->setup_date && $setup->harvest_date) {
                 $setupDate = Carbon::parse($setup->setup_date)->startOfDay();
-                $now = Carbon::now()->startOfDay();
+                $harvestDate = Carbon::parse($setup->harvest_date)->startOfDay();
+                $duration = (int) $setupDate->diffInDays($harvestDate, false);
+            }
 
-                $plantAge = (int) $setupDate->diffInDays($now, false);
-
-                $daysLeft = null;
-                if ($yield->harvest_date) {
-                    $harvestDate = Carbon::parse($yield->harvest_date)->startOfDay();
-                    $daysLeft = max(0, (int) $now->diffInDays($harvestDate, false));
-                }
-
-                return [
+            return [
+                'id' => $setup->id,
+                'crop_name' => $setup->crop_name,
+                'number_of_crops' => $setup->number_of_crops,
+                'bed_size' => $setup->bed_size,
+                'setup_date' => $setup->setup_date,
+                'harvest_date' => $setup->harvest_date,
+                'duration_days' => $duration,
+                'yield' => $yield ? [
                     'id' => $yield->id,
-                    'crop_name' => $setup->crop_name,
-                    'setup_date' => $setup->setup_date,
-                    'harvest_date' => $yield->harvest_date,
-                    'plant_age' => $plantAge,
-                    'days_left' => $daysLeft,
-                    'growth_stage' => $yield->growth_stage,
-                    'health_status' => $yield->health_status,
-                    'harvest_status' => $yield->harvest_status,
-                ];
-            });
+                    'total_count' => $yield->total_count,
+                    'total_weight' => $yield->total_weight,
+                    'notes' => $yield->notes,
+                    'grades' => $yield->grades->map(function ($grade) {
+                        return [
+                            'id' => $grade->id,
+                            'grade' => $grade->grade,
+                            'count' => $grade->count,
+                            'weight' => $grade->weight,
+                        ];
+                    }),
+                ] : null,
+            ];
         });
+
+        // Replace the collection with transformed data
+        $setups->setCollection($data);
 
         return response()->json([
             'status' => 'success',
-            'data' => $data->values(),
+            'statistics' => $statistics,
+            'data' => $setups,
         ]);
+    }
+
+    /**
+     * Calculate statistics for harvested setups
+     *
+     * @param \Illuminate\Database\Eloquent\Collection $setups
+     * @return array
+     */
+    private function calculateStatistics($setups)
+    {
+        $totalHarvestedSetups = $setups->count();
+        $totalSold = 0;
+        $totalConsumed = 0;
+        $totalDisposed = 0;
+
+        foreach ($setups as $setup) {
+            $yield = $setup->hydroponic_yields->first();
+
+            if ($yield && $yield->grades && $yield->grades->count() > 0) {
+                foreach ($yield->grades as $grade) {
+                    $count = $grade->count ?? 0;
+                    switch ($grade->grade) {
+                        case 'selling':
+                            $totalSold += $count;
+                            break;
+                        case 'consumption':
+                            $totalConsumed += $count;
+                            break;
+                        case 'disposal':
+                            $totalDisposed += $count;
+                            break;
+                    }
+                }
+            }
+        }
+
+        return [
+            'total_harvested_setups' => $totalHarvestedSetups,
+            'total_sold' => $totalSold,
+            'total_consumed' => $totalConsumed,
+            'total_disposed' => $totalDisposed,
+        ];
     }
 
     public function show(HydroponicSetup $setup)
@@ -91,133 +161,73 @@ class HydroponicYieldController extends Controller
         ]);
     }
 
-    public function update(UpdateYieldRequest $request, HydroponicYield $yield)
-    {
-        $validated = $request->validated();
-        $user = $request->user();
-
-        // Store old values for comparison
-        $oldHealthStatus = $yield->health_status;
-        
-        // Update the yield with validated data
-        $yield->update(array_filter($validated));
-
-        // Reload the yield to get fresh data with relationships
-        $yield->load('hydroponic_setup');
-        $setup = $yield->hydroponic_setup;
-        
-        // Get user's first device for notifications
-        $device = $user->devices()->where('status', 'connected')->first();
-        
-        if (!$device) {
-            // If no connected device, try to get any device
-            $device = $user->devices()->first();
-        }
-
-        if ($device) {
-            // Check if health status changed
-            if (isset($validated['health_status']) && $oldHealthStatus !== $validated['health_status']) {
-                
-                if ($validated['health_status'] === 'good') {
-                    // Health improved to good
-                    $this->createNotification(
-                        $user->id,
-                        $device->id,
-                        'Health Improved: ' . $setup->crop_name,
-                        'Great news! Your crop health status has improved to GOOD. Keep up the good work!',
-                        'success'
-                    );
-                } elseif (in_array($validated['health_status'], ['moderate', 'poor'])) {
-                    // Health deteriorated to moderate or poor
-                    $healthType = $validated['health_status'] === 'poor' ? 'warning' : 'warning';
-                    $healthMessage = $validated['health_status'] === 'poor' 
-                        ? 'Your crop health status has deteriorated to POOR. Immediate attention required!' 
-                        : 'Your crop health status has changed to MODERATE. Please check your setup.';
-                    
-                    $this->createNotification(
-                        $user->id,
-                        $device->id,
-                        'Health Alert: ' . $setup->crop_name,
-                        $healthMessage,
-                        $healthType
-                    );
-                }
-            }
-
-            // Check if harvest is near (within 7 days)
-            if ($yield->harvest_date) {
-                $now = Carbon::now()->startOfDay();
-                $harvestDate = Carbon::parse($yield->harvest_date)->startOfDay();
-                $daysUntilHarvest = $now->diffInDays($harvestDate, false);
-
-                // Only notify if harvest is between 1-7 days away and not already harvested
-                if ($daysUntilHarvest >= 0 && $daysUntilHarvest <= 7 && $yield->harvest_status !== 'harvested') {
-                    $harvestMessage = $daysUntilHarvest === 0 
-                        ? "Your {$setup->crop_name} is ready for harvest today!" 
-                        : "Your {$setup->crop_name} will be ready for harvest in {$daysUntilHarvest} day(s).";
-                    
-                    $this->createNotification(
-                        $user->id,
-                        $device->id,
-                        'Harvest Reminder: ' . $setup->crop_name,
-                        $harvestMessage,
-                        'info'
-                    );
-                }
-            }
-        }
-
-        return response()->json([
-            'message' => 'Yield updated successfully.',
-            'data' => $yield,
-        ]);
-    }
-
-    public function updateActualYield(UpdateActualYieldRequest $request, HydroponicYield $yield)
+    public function storeYield(StoreYieldRequest $request, HydroponicSetup $setup)
     {
         $validated = $request->validated();
 
-        $yield->update([
-            'actual_yield' => $validated['actual_yield'],
-            'harvest_date' => $validated['harvest_date'],
-            'harvest_status' => 'harvested',
+        // Calculate disposal count (crops not harvested)
+        $disposalCount = $setup->number_of_crops - $validated['total_count'];
+
+        return DB::transaction(function () use ($validated, $setup, $disposalCount) {
+            // Check if yield already exists for this setup
+            $existingYield = HydroponicYield::where('hydroponic_setup_id', $setup->id)->first();
+
+            if ($existingYield) {
+                // Update existing yield
+                $existingYield->update([
+                    'total_count' => $validated['total_count'],
+                    'total_weight' => $validated['total_weight'] ?? null,
             'notes' => $validated['notes'] ?? null,
         ]);
 
+                // Delete existing grades and recreate
+                $existingYield->grades()->delete();
+                $yield = $existingYield;
+                $isUpdate = true;
+            } else {
+                // Create new yield record
+                $yield = HydroponicYield::create([
+                    'hydroponic_setup_id' => $setup->id,
+                    'total_count' => $validated['total_count'],
+                    'total_weight' => $validated['total_weight'] ?? null,
+                    'notes' => $validated['notes'] ?? null,
+                ]);
+                $isUpdate = false;
+            }
+
+            // Create grade records from request
+            foreach ($validated['grades'] as $gradeData) {
+                HydroponicYieldGrade::create([
+                    'hydroponic_yield_id' => $yield->id,
+                    'grade' => $gradeData['grade'],
+                    'count' => $gradeData['count'],
+                    'weight' => $gradeData['weight'] ?? null,
+                ]);
+            }
+
+            // Automatically create disposal grade record
+            HydroponicYieldGrade::create([
+                'hydroponic_yield_id' => $yield->id,
+                'grade' => 'disposal',
+                'count' => $disposalCount,
+                'weight' => null,
+            ]);
+
+            // Load grades relationship for response
+            $yield->load('grades');
+
         return response()->json([
-            'message' => 'Actual yield and harvest date recorded successfully.',
-            'data' => $yield,
-        ]);
-    }
-
-    /**
-     * Create a notification for the user
-     */
-    private function createNotification($userId, $deviceId, $title, $message, $type = 'info')
-    {
-        try {
-            $notification = Notification::create([
-                'user_id' => $userId,
-                'device_id' => $deviceId,
-                'title' => $title,
-                'message' => $message,
-                'type' => $type,
-                'is_read' => false,
-                'created_at' => now(),
-            ]);
-
-            Log::info('Yield notification created', [
-                'notification_id' => $notification->id,
-                'user_id' => $userId,
-                'title' => $title
-            ]);
-
-            // Broadcast the notification
-            broadcast(new NotificationBroadcast($notification));
-
-            Log::info('Yield notification broadcast dispatched successfully');
-        } catch (\Exception $e) {
-            Log::error('Failed to create yield notification: ' . $e->getMessage());
-        }
+                'status' => 'success',
+                'message' => $isUpdate ? 'Yield data updated successfully.' : 'Yield data stored successfully.',
+                'data' => [
+                    'yield' => $yield,
+                    'summary' => [
+                        'total_crops_in_setup' => $setup->number_of_crops,
+                        'total_harvested' => $validated['total_count'],
+                        'total_disposed' => $disposalCount,
+                    ],
+                ],
+            ], $isUpdate ? 200 : 201);
+        });
     }
 }
