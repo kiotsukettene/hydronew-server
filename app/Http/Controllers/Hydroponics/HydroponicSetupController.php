@@ -23,6 +23,39 @@ class HydroponicSetupController extends Controller
         ->where('status', 'active')
         ->paginate(5);
 
+        // Calculate growth_percentage, plant_age, and days_left for each setup
+        $setups->getCollection()->transform(function ($setup) {
+            $setupDate = Carbon::parse($setup->setup_date);
+            $now = Carbon::now();
+
+            // Calculate plant_age
+            $plantAge = (int) $setupDate->diffInDays($now);
+
+            // Calculate days_left
+            $daysLeft = 0;
+            if ($setup->harvest_date) {
+                $harvestDate = Carbon::parse($setup->harvest_date);
+                $daysLeft = max(0, (int) $now->diffInDays($harvestDate, false));
+            }
+
+            // Calculate growth_percentage
+            $growthPercentage = 0;
+            if ($setup->harvest_date) {
+                $harvestDate = Carbon::parse($setup->harvest_date);
+                $totalDays = $setupDate->diffInDays($harvestDate);
+                if ($totalDays > 0) {
+                    $daysPassed = $setupDate->diffInDays($now);
+                    $growthPercentage = min(100, round((($daysPassed / $totalDays) * 100), 0));
+                }
+            }
+
+            $setup->plant_age = $plantAge;
+            $setup->days_left = $daysLeft;
+            $setup->growth_percentage = $growthPercentage;
+
+            return $setup;
+        });
+
         return response()->json([
             'status' => 'success',
             'data' => $setups
@@ -99,6 +132,13 @@ class HydroponicSetupController extends Controller
                 'status' => 'error',
                 'message' => 'This setup has already been marked as harvested.',
             ], 400);
+        }
+
+        if ($setup->setup_date->diffInDays(now()) < 14) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Harvesting is not allowed until day 14.',
+            ], 403);
         }
 
         // Check if yield record exists for this setup
