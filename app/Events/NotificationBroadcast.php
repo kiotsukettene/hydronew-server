@@ -1,0 +1,70 @@
+<?php
+
+namespace App\Events;
+
+use App\Models\Notification;
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
+
+class NotificationBroadcast implements ShouldBroadcastNow
+{
+    use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    public $notification;
+
+
+    /**
+     * Create a new event instance.
+     */
+    public function __construct(Notification $notification)
+    {
+        $this->notification = $notification;
+
+        Log::info('NotificationBroadcast event instantiated', [
+            'notification_id' => $notification->id,
+            'user_id' => $notification->user_id
+        ]);
+    }
+
+    /**
+     * Get the channels the event should broadcast on.
+     *
+     * @return array<int, \Illuminate\Broadcasting\Channel>
+     */
+    public function broadcastOn()
+    {
+        $channel = 'user.' . $this->notification->user_id;
+        Log::info('Broadcasting on channel', ['channel' => $channel]);
+         return [new PrivateChannel($channel)];
+    }
+
+    public function broadcastAs()
+    {
+        return 'notification.created';
+    }
+
+    public function broadcastWith()
+    {
+        $data = [
+            'notification' => [
+                'id' => $this->notification->id,
+                'user_id' => $this->notification->user_id,
+                'device_id' => $this->notification->device_id,
+                'title' => $this->notification->title,
+                'message' => $this->notification->message,
+                'type' => $this->notification->type,
+                'is_read' => $this->notification->is_read,
+                'created_at' => $this->notification->created_at,
+                'time' => date('h:i A', strtotime($this->notification->created_at)),
+            ]
+        ];
+
+        Log::info('Broadcasting data', ['data' => $data]);
+
+        return $data;
+    }
+}

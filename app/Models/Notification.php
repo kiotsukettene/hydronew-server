@@ -38,8 +38,11 @@ class Notification extends Model
 	protected $fillable = [
 		'user_id',
 		'device_id',
+		'title',
 		'message',
-		'is_read'
+		'type',
+		'is_read',
+		'created_at'
 	];
 
 	public function user()
