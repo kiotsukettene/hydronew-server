@@ -50,7 +50,6 @@ class StoreYieldRequest extends FormRequest
             $totalCount = $this->input('total_count', 0);
             $grades = $this->input('grades', []);
             
-            // Calculate sum of grades counts
             $gradesSum = collect($grades)->sum('count');
             
             if ($gradesSum !== (int) $totalCount) {
