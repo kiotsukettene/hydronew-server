@@ -27,7 +27,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             UsersSeeder::class,
             DevicesSeeder::class,
-            SensorsSeeder::class,
+            SensorSystemSeeder::class,
             SensorReadingsSeeder::class,
             TreatmentReportsSeeder::class,
             TreatmentStagesSeeder::class,

@@ -2,8 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Models\Device;
 use App\Models\Sensor;
 use App\Models\SensorReading;
+use App\Models\SensorSystem;
 use Illuminate\Database\Seeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Carbon\Carbon;
@@ -15,26 +17,39 @@ class SensorReadingsSeeder extends Seeder
      */
     public function run(): void
     {
-        $sensors = Sensor::all();
+        $systems = SensorSystem::where('device_id', Device::first()->id)->get();
 
-        foreach ($sensors as $sensor) {
-            for ($i = 0; $i < 10; $i++) {
-                SensorReading::create([
-                    'sensor_id' => $sensor->id,
-                    'reading_value' => match ($sensor->type) {
-                        'ph' => number_format(rand(55, 75) / 10, 1),
-                        'turbidity' => rand(1, 10),
-                        'TDS' => rand(150, 350),
-                        'temperature' => number_format(rand(200, 300) / 10, 1),
-                        'water_level' => rand(60, 100),
-                        'electric_current' => number_format(rand(100, 200) / 10, 1),
-                        'ec' => number_format(rand(12, 25) / 10, 1),
-                        'humidity' => rand(1, 100),
-                        default => rand(1, 100)
-                    },
-                    'reading_time' => Carbon::now()->subMinutes(rand(1, 100)),
-                ]);
-            }
+        foreach ($systems as $system) {
+            SensorReading::create([
+                'sensor_system_id' => $system->id,
+                'ph' => match ($system->system_type) {
+                    'dirty_water' => 4.08,
+                    'clean_water' => 7.56,
+                    'hydroponics_water' => 6.20,
+                },
+                'tds' => match ($system->system_type) {
+                    'dirty_water' => 2.49,
+                    'clean_water' => 2.43,
+                    'hydroponics_water' => 1.53,
+                },
+                'turbidity' => in_array($system->system_type, ['dirty_water', 'clean_water'])
+                    ? 2.30
+                    : null,
+                'water_level' => in_array($system->system_type, ['dirty_water', 'clean_water'])
+                    ? 1.80
+                    : null,
+                'humidity' => $system->system_type === 'hydroponics_water'
+                    ? 65.00
+                    : null,
+                'temperature' => $system->system_type === 'hydroponics_water'
+                    ? 24.50
+                    : null,
+                'ec' => $system->system_type === 'hydroponics_water'
+                    ? 1.90
+                    : null,
+                'electric_current' => null,
+                'reading_time' => Carbon::now(),
+            ]);
         }
     }
 }
