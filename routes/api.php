@@ -11,6 +11,7 @@ use App\Http\Controllers\Notification\NotificationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Devices\DeviceController;
+use App\Http\Controllers\Devices\MQTTSensorDataController;
 use App\Http\Controllers\Hydroponics\HydroponicSetupController;
 use App\Http\Controllers\Hydroponics\HydroponicYieldController;
 use App\Http\Controllers\TipsSuggestions\TipsController;
@@ -91,6 +92,10 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('v1/devices', [DeviceController::class, 'index']);
     Route::post('v1/devices/connect', [DeviceController::class, 'connectDevice']);
     Route::post('v1/devices/{device}/disconnect', [DeviceController::class, 'disconnectDevice']);
+    
+    // MQTT Sensor Data endpoints
+    Route::post('v1/devices/sensor-data', [MQTTSensorDataController::class, 'store']);
+    Route::get('v1/devices/{deviceId}/sensor-data', [MQTTSensorDataController::class, 'show']);
 
     Route::get('v1/water-monitoring', [WaterMonitoringController::class, 'index']);
 
