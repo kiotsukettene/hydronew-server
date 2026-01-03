@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Devices;
 
 use App\Http\Controllers\Controller;
+use App\Models\SensorSystem;
 use App\Services\MQTTSensorDataHandlerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -112,7 +113,7 @@ class MQTTSensorDataController extends Controller
     public function show($deviceId)
     {
         try {
-            $sensorSystems = \App\Models\SensorSystem::where('device_id', $deviceId)
+            $sensorSystems = SensorSystem::where('device_id', $deviceId)
                 ->with('latestReading')
                 ->get();
 
