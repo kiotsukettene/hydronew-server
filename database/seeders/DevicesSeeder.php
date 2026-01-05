@@ -19,10 +19,11 @@ class DevicesSeeder extends Seeder
 
 
         Device::firstOrCreate([
-            'user_id' => $user->id,
-            'name' => 'HydroNew Device A-1',
+            'device_name' => 'HydroNew Device A-1',
             'serial_number' => 'MFC-1204328HD0B45',
-            'status' => 'connected',
+            'model' => 'HydroNew Model A',
+            'firmware_version' => '1.0.0',
+            'status' => 'unpaired',
         ]);
     }
 }

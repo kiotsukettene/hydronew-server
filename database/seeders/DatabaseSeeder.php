@@ -14,6 +14,7 @@ use Database\Seeders\HydroponicYieldSeeder;
 use Database\Seeders\TipsSuggestionsSeeder;
 use Database\Seeders\TreatmentStagesSeeder;
 use Database\Seeders\TreatmentReportsSeeder;
+use Database\Seeders\DeviceUserSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -37,6 +38,7 @@ class DatabaseSeeder extends Seeder
             TipsSuggestionsSeeder::class,
             NotificationSeeder::class,
             HelpCenterSeeder::class,
+            DeviceUserSeeder::class,
         ]);
     }
 }
