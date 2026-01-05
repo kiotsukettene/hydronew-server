@@ -36,12 +36,13 @@ class Device extends Model
 		'user_id' => 'int'
 	];
 
-	protected $fillable = [
-		'user_id',
-		'name',
-		'serial_number',
-		'status'
-	];
+    protected $fillable = [
+        'device_name',
+        'serial_number',
+        'model',
+        'firmware_version',
+        'status',
+    ];
 
 	public function user()
 	{
