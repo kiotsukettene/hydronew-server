@@ -18,7 +18,6 @@ class DeviceUserSeeder extends Seeder
         DeviceUser::firstOrCreate([
             'user_id' => '1',
             'device_id' => $device->id,
-            'token' => 'sample_paring_token_123456',
             'expires_at' => now()->addHours(2),
         ]);
 

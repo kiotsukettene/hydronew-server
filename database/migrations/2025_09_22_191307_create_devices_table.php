@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('serial_number', 150)->unique('serial_number');
             $table->string('model', 100)->nullable();
             $table->string('firmware_version', 50)->nullable();
-            $table->enum('status', ['paired', 'unpaired'])->nullable()->default('unpaired');
+            $table->enum('status', ['online', 'offline'])->nullable()->default('offline');
             $table->timestamp('created_at')->useCurrent();
             $table->timestamp('updated_at')->useCurrentOnUpdate()->useCurrent();
         });

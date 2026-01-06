@@ -23,7 +23,7 @@ class DevicesSeeder extends Seeder
             'serial_number' => 'MFC-1204328HD0B45',
             'model' => 'HydroNew Model A',
             'firmware_version' => '1.0.0',
-            'status' => 'unpaired',
+            'status' => 'offline',
         ]);
     }
 }
