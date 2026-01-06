@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Events\SensorDataBroadcast;
 use App\Models\SensorReading;
 use App\Models\SensorSystem;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class MQTTSensorDataHandlerService {
     public function handlePayload(int $deviceId, array $payload): void
@@ -46,7 +48,31 @@ class MQTTSensorDataHandlerService {
                     $readingData[$dbKey] = $value;
                 }
 
-                SensorReading::create($readingData);
+                // Create the sensor reading
+                $sensorReading = SensorReading::create($readingData);
+
+                // Load the relationship for broadcasting
+                $sensorReading->load('sensorSystem');
+
+                // Schedule broadcast to run AFTER transaction commits
+                DB::afterCommit(function () use ($sensorReading, $deviceId, $systemType) {
+                    try {
+                        broadcast(new SensorDataBroadcast($sensorReading, $deviceId, $systemType));
+                        
+                        Log::debug('Sensor data broadcast', [
+                            'device_id' => $deviceId,
+                            'system_type' => $systemType,
+                            'reading_id' => $sensorReading->id,
+                            'ph' => $sensorReading->ph,
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('Failed to broadcast sensor data', [
+                            'device_id' => $deviceId,
+                            'system_type' => $systemType,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                });
             }
         });
     }
