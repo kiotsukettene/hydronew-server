@@ -3,15 +3,16 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Models\Sensor;
+use App\Models\SensorSystem;
 use App\Models\SensorReading;
 use Illuminate\Http\Request;
-use Illuminate\Routing\Controllers\HasMiddleware;
-use Illuminate\Routing\Controllers\Middleware;
 
 class DashboardController extends Controller
 {
-    private function getPhStatus($value)
+    /**
+     * Get pH status based on value
+     */
+    private function getPhStatus(?float $value): string
     {
         if (is_null($value)) return 'Unknown';
         if ($value >= 6.0 && $value <= 7.5) return 'Good';
@@ -19,33 +20,46 @@ class DashboardController extends Controller
         return 'Alkaline';
     }
 
+    /**
+     * Dashboard index - returns only pH levels from all sensor systems
+     */
     public function index(Request $request)
     {
         $user = $request->user();
+        $deviceId = $request->input('device_id', 1); // Default to device 1
 
-        // Get the "pH" sensor
-        $phSensor = Sensor::where('type', '=', 'ph')->first();
+        // Get all sensor systems for the device with their latest readings
+        $sensorSystems = SensorSystem::where('device_id', $deviceId)
+    ->where('is_active', true)
+    ->where('system_type', '=', 'clean_water')
+    ->with('latestReading')
+    ->get();
 
-        if (!$phSensor) {
+        if ($sensorSystems->isEmpty()) {
             return response()->json([
-                'message' => 'No pH sensor found.',
+                'message' => 'No active sensor systems found for this device.',
+                'device_id' => $deviceId,
             ], 404);
         }
 
-        // Get the latest reading for that sensor
-        $latestPhReading = $phSensor->sensor_readings()
-            ->select('id', 'sensor_id', 'reading_value', 'reading_time')
-            ->latest(column: 'reading_time')
-            ->first();
+        // Format the response with only pH data
+        $phData = [];
+
+        foreach ($sensorSystems as $system) {
+            $latestReading = $system->latestReading;
+
+            $phData[$system->system_type] = [
+                'value' => $latestReading?->ph,
+                'unit' => 'pH',
+                'time' => $latestReading?->reading_time,
+                'status' => $this->getPhStatus($latestReading?->ph),
+            ];
+        }
 
         return response()->json([
-            'user' => $user->first_name,
-            'ph_level' => [
-                'value' => $latestPhReading?->reading_value,
-                'unit' => $phSensor->unit,
-                'time' => $latestPhReading?->reading_time,
-                'status' => $this->getPhStatus($latestPhReading?->reading_value),
-            ]
+            'user' => $user->first_name ?? $user->name,
+            'device_id' => $deviceId,
+            'ph_levels' => $phData,
         ]);
     }
 }
