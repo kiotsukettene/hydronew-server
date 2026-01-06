@@ -4,6 +4,7 @@ namespace App\Http\Controllers\TipsSuggestions;
 
 use App\Http\Controllers\Controller;
 use App\Models\SensorReading;
+use App\Models\SensorSystem;
 use App\Services\GeminiApiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -14,26 +15,46 @@ class TipsController extends Controller
     {
         $user = $request->user();
 
-        // ✅ Step 1: Fetch latest readings by type
-        $requiredTypes = ['ph', 'turbidity', 'tds', 'ec', 'water_level'];
+        // Optional: Filter by device_id and system_type from request
+        $deviceId = $request->input('device_id');
+        $systemType = $request->input('system_type', 'hydroponics_water');
 
-        $latestReadingsByType = SensorReading::selectRaw('MAX(id) as id')
-            ->groupBy('sensor_id');
+        // Build query for the latest sensor reading
+        $query = SensorReading::whereHas('sensorSystem', function ($q) use ($deviceId, $systemType) {
+            $q->where('is_active', true);
+            
+            // Filter by device_id if provided
+            if ($deviceId) {
+                $q->where('device_id', $deviceId);
+            }
+            
+            // Filter by system_type (default: hydroponics_water)
+            if ($systemType) {
+                $q->where('system_type', $systemType);
+            }
+        });
 
-        $readings = SensorReading::whereIn('id', $latestReadingsByType)
-            ->with('sensor:id,type,unit')
-            ->whereHas('sensor', function ($query) use ($requiredTypes) {
-                $query->whereIn('type', $requiredTypes);
-            })
-            ->get()
-            ->keyBy('sensor.type');
+        // Get the latest reading
+        $latestReading = $query->orderBy('reading_time', 'desc')->first();
 
+        // If no reading found, return error
+        if (!$latestReading) {
+            return response()->json([
+                'error' => 'No sensor readings found',
+                'message' => 'Please ensure your sensors are connected and transmitting data.',
+                'filters' => [
+                    'device_id' => $deviceId,
+                    'system_type' => $systemType
+                ]
+            ], 404);
+        }
 
-        $ph = $readings->get('ph')?->reading_value;
-        $tds = $readings->get('tds')?->reading_value;
-        $turbidity = $readings->get('turbidity')?->reading_value;
-        $ec = $readings->get('ec')?->reading_value;
-        $waterLevel = $readings->get('water_level')?->reading_value;
+        // Extract sensor values from the reading
+        $ph = $latestReading->ph;
+        $tds = $latestReading->tds;
+        $turbidity = $latestReading->turbidity;
+        $ec = $latestReading->ec;
+        $waterLevel = $latestReading->water_level;
 
 
         $qualityMsg = $this->evaluateQuality($ph, $tds, $turbidity, $ec);
@@ -130,9 +151,22 @@ PROMPT;
             ]);
         }
 
-        // ✅ Step 6: Return combined data
+        // Load sensor system relationship for additional context
+        $latestReading->load('sensorSystem');
+
+        // Return combined data
         return response()->json([
             'user' => $user->id,
+            'sensor_data' => [
+                'ph' => $ph,
+                'tds' => $tds,
+                'turbidity' => $turbidity,
+                'ec' => $ec,
+                'water_level' => $waterLevel,
+                'reading_time' => $latestReading->reading_time,
+                'system_type' => $latestReading->sensorSystem->system_type ?? null,
+                'device_id' => $latestReading->sensorSystem->device_id ?? null,
+            ],
             'quality' => $qualityMsg,
             'tips' => $decoded,
         ]);
