@@ -16,11 +16,6 @@ return new class extends Migration
             $table->index(['sensor_system_id', 'reading_time'], 'idx_sensor_readings_system_time');
         });
 
-        // Optimize hydroponic_setup_logs queries for growth tracking
-        Schema::table('hydroponic_setup_logs', function (Blueprint $table) {
-            $table->index(['hydroponic_setup_id', 'created_at'], 'idx_setup_logs_setup_time');
-        });
-
         // Optimize treatment_reports queries for performance analytics
         Schema::table('treatment_reports', function (Blueprint $table) {
             $table->index(['device_id', 'start_time'], 'idx_treatment_reports_device_time');
@@ -36,6 +31,8 @@ return new class extends Migration
         Schema::table('hydroponic_setup', function (Blueprint $table) {
             $table->index(['user_id', 'harvest_status', 'is_archived'], 'idx_hydroponic_setup_user_status');
             $table->index(['crop_name', 'harvest_date'], 'idx_hydroponic_setup_crop_harvest');
+            $table->index(['growth_stage'], 'idx_hydroponic_setup_growth_stage');
+            $table->index(['health_status'], 'idx_hydroponic_setup_health_status');
         });
     }
 
@@ -46,10 +43,6 @@ return new class extends Migration
     {
         Schema::table('sensor_readings', function (Blueprint $table) {
             $table->dropIndex('idx_sensor_readings_system_time');
-        });
-
-        Schema::table('hydroponic_setup_logs', function (Blueprint $table) {
-            $table->dropIndex('idx_setup_logs_setup_time');
         });
 
         Schema::table('treatment_reports', function (Blueprint $table) {
@@ -64,6 +57,8 @@ return new class extends Migration
         Schema::table('hydroponic_setup', function (Blueprint $table) {
             $table->dropIndex('idx_hydroponic_setup_user_status');
             $table->dropIndex('idx_hydroponic_setup_crop_harvest');
+            $table->dropIndex('idx_hydroponic_setup_growth_stage');
+            $table->dropIndex('idx_hydroponic_setup_health_status');
         });
     }
 };

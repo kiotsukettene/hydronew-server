@@ -34,7 +34,6 @@ class DatabaseSeeder extends Seeder
             TreatmentStagesSeeder::class,
             HydroponicSetupSeeder::class,
             HydroponicYieldSeeder::class,
-            HydroponicSetupLogSeeder::class,
             TipsSuggestionsSeeder::class,
             NotificationSeeder::class,
             HelpCenterSeeder::class,

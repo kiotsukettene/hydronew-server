@@ -9,7 +9,6 @@ use App\Http\Requests\Reports\TreatmentReportRequest;
 use App\Http\Requests\Reports\WaterQualityRequest;
 use App\Models\Device;
 use App\Models\HydroponicSetup;
-use App\Models\HydroponicSetupLog;
 use App\Models\SensorReading;
 use App\Models\SensorSystem;
 use App\Models\TreatmentReport;
@@ -57,64 +56,71 @@ class ReportsController extends Controller
             $query->whereDate('setup_date', '<=', $validated['date_to']);
         }
 
-        // Get setups with latest logs
-        $setups = $query->with(['logs' => function ($q) {
-            $q->orderBy('created_at', 'desc')->limit(1);
-        }])->get();
+        // Get setups
+        $setups = $query->get();
 
         // Calculate growth stage distribution
-        $growthStageDistribution = HydroponicSetupLog::whereIn(
-            'hydroponic_setup_id',
-            $setups->pluck('id')
-        )
+        $growthStageDistribution = HydroponicSetup::where('user_id', $user->id)
+            ->where('is_archived', false)
+            ->whereNotNull('growth_stage')
             ->select('growth_stage', DB::raw('count(*) as count'))
             ->groupBy('growth_stage')
             ->get()
             ->pluck('count', 'growth_stage');
 
         // Calculate health status distribution
-        $healthStatusDistribution = HydroponicSetupLog::whereIn(
-            'hydroponic_setup_id',
-            $setups->pluck('id')
-        )
+        $healthStatusDistribution = HydroponicSetup::where('user_id', $user->id)
+            ->where('is_archived', false)
+            ->whereNotNull('health_status')
             ->select('health_status', DB::raw('count(*) as count'))
             ->groupBy('health_status')
             ->get()
             ->pluck('count', 'health_status');
 
-        // Calculate parameter compliance for active setups
+        // Calculate parameter compliance for active setups using latest sensor readings
         $parameterCompliance = [];
         $activeSetups = $setups->where('status', 'active');
 
-        foreach ($activeSetups as $setup) {
-            $latestLog = $setup->logs->first();
+        // Get user's hydroponics sensor system
+        $sensorSystem = SensorSystem::whereHas('device', function ($q) use ($user) {
+            $q->where('user_id', $user->id);
+        })
+            ->where('system_type', 'hydroponics_water')
+            ->where('is_active', true)
+            ->first();
 
-            if ($latestLog) {
-                // Check pH compliance
-                if ($latestLog->ph_status !== null) {
-                    $phInRange = $latestLog->ph_status >= $setup->target_ph_min &&
-                        $latestLog->ph_status <= $setup->target_ph_max;
+        if ($sensorSystem) {
+            // Get latest sensor reading
+            $latestReading = $sensorSystem->latestReading;
 
-                    if (!isset($parameterCompliance['ph'])) {
-                        $parameterCompliance['ph'] = ['compliant' => 0, 'total' => 0];
+            if ($latestReading) {
+                foreach ($activeSetups as $setup) {
+                    // Check pH compliance
+                    if ($latestReading->ph !== null) {
+                        $phInRange = $latestReading->ph >= $setup->target_ph_min &&
+                            $latestReading->ph <= $setup->target_ph_max;
+
+                        if (!isset($parameterCompliance['ph'])) {
+                            $parameterCompliance['ph'] = ['compliant' => 0, 'total' => 0];
+                        }
+                        $parameterCompliance['ph']['total']++;
+                        if ($phInRange) {
+                            $parameterCompliance['ph']['compliant']++;
+                        }
                     }
-                    $parameterCompliance['ph']['total']++;
-                    if ($phInRange) {
-                        $parameterCompliance['ph']['compliant']++;
-                    }
-                }
 
-                // Check TDS compliance
-                if ($latestLog->tds_status !== null) {
-                    $tdsInRange = $latestLog->tds_status >= $setup->target_tds_min &&
-                        $latestLog->tds_status <= $setup->target_tds_max;
+                    // Check TDS compliance
+                    if ($latestReading->tds !== null) {
+                        $tdsInRange = $latestReading->tds >= $setup->target_tds_min &&
+                            $latestReading->tds <= $setup->target_tds_max;
 
-                    if (!isset($parameterCompliance['tds'])) {
-                        $parameterCompliance['tds'] = ['compliant' => 0, 'total' => 0];
-                    }
-                    $parameterCompliance['tds']['total']++;
-                    if ($tdsInRange) {
-                        $parameterCompliance['tds']['compliant']++;
+                        if (!isset($parameterCompliance['tds'])) {
+                            $parameterCompliance['tds'] = ['compliant' => 0, 'total' => 0];
+                        }
+                        $parameterCompliance['tds']['total']++;
+                        if ($tdsInRange) {
+                            $parameterCompliance['tds']['compliant']++;
+                        }
                     }
                 }
             }
@@ -127,10 +133,14 @@ class ReportsController extends Controller
                 : 0;
         }
 
-        // Format setup data
-        $setupsData = $setups->map(function ($setup) {
-            $latestLog = $setup->logs->first();
+        // Get latest sensor reading for current parameters
+        $latestReading = null;
+        if ($sensorSystem) {
+            $latestReading = $sensorSystem->latestReading;
+        }
 
+        // Format setup data
+        $setupsData = $setups->map(function ($setup) use ($latestReading) {
             return [
                 'id' => $setup->id,
                 'crop_name' => $setup->crop_name,
@@ -139,13 +149,13 @@ class ReportsController extends Controller
                 'status' => $setup->status,
                 'setup_date' => $setup->setup_date,
                 'harvest_date' => $setup->harvest_date,
-                'health_status' => $latestLog->health_status ?? 'unknown',
-                'growth_stage' => $latestLog->growth_stage ?? 'unknown',
+                'health_status' => $setup->health_status ?? 'unknown',
+                'growth_stage' => $setup->growth_stage ?? 'unknown',
                 'current_parameters' => [
-                    'ph' => $latestLog->ph_status ?? null,
-                    'tds' => $latestLog->tds_status ?? null,
-                    'ec' => $latestLog->ec_status ?? null,
-                    'humidity' => $latestLog->humidity_status ?? null,
+                    'ph' => $latestReading->ph ?? null,
+                    'tds' => $latestReading->tds ?? null,
+                    'ec' => $latestReading->ec ?? null,
+                    'humidity' => $latestReading->humidity ?? null,
                 ],
                 'target_parameters' => [
                     'ph_min' => $setup->target_ph_min,
