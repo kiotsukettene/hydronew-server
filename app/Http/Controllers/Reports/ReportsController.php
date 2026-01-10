@@ -37,7 +37,8 @@ class ReportsController extends Controller
 
         // Build query for hydroponic setups
         $query = HydroponicSetup::where('user_id', $user->id)
-            ->where('is_archived', false);
+            ->where('is_archived', false)
+            ->where('status', '=', 'active');
 
         // Apply filters
         if (!empty($validated['status'])) {
@@ -63,6 +64,7 @@ class ReportsController extends Controller
         $growthStageDistribution = HydroponicSetup::where('user_id', $user->id)
             ->where('is_archived', false)
             ->whereNotNull('growth_stage')
+            ->where('status', '=', 'active')
             ->select('growth_stage', DB::raw('count(*) as count'))
             ->groupBy('growth_stage')
             ->get()
@@ -72,6 +74,7 @@ class ReportsController extends Controller
         $healthStatusDistribution = HydroponicSetup::where('user_id', $user->id)
             ->where('is_archived', false)
             ->whereNotNull('health_status')
+            ->where('status', '=', 'active')
             ->select('health_status', DB::raw('count(*) as count'))
             ->groupBy('health_status')
             ->get()

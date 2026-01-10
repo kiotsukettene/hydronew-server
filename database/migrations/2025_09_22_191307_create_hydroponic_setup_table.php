@@ -30,7 +30,7 @@ return new class extends Migration
 
             // Other details
             $table->enum('harvest_status', ['not_harvested', 'harvested', 'partial'])->nullable()->default('not_harvested');
-            $table->enum('growth_stage', ['seedling', 'vegetative', 'flowering', 'harvest-ready'])
+            $table->enum('growth_stage', ['seedling', 'vegetative', 'flowering', 'harvest-ready', 'harvested', 'overgrown'])
             ->nullable()
             ->default('seedling');
             $table->enum('health_status', ['good', 'moderate', 'poor'])
