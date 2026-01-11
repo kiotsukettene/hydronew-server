@@ -242,6 +242,9 @@ class ReportsController extends Controller
         // Calculate waste percentage
         $wastePercentage = $gradeDistribution['disposal']['percentage'];
 
+        // Calculate consumption percentage
+        $consumptionPercentage = $gradeDistribution['consumption']['percentage'];
+
         // Month-over-month comparison (if applicable)
         $monthOverMonth = null;
         if (!empty($validated['date_from']) && !empty($validated['date_to'])) {
@@ -288,6 +291,7 @@ class ReportsController extends Controller
                 'average_yield' => $averageYield,
                 'sellable_yield_percentage' => $sellablePercentage,
                 'waste_percentage' => $wastePercentage,
+                'consumption_percentage' => $consumptionPercentage,
                 'month_over_month' => $monthOverMonth,
             ],
             'meta' => [
