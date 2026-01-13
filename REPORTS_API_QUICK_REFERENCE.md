@@ -62,16 +62,19 @@
 **GET** `/api/v1/reports/water-quality/historical`
 
 **Query Parameters:**
-- `system_type` (required): dirty_water, clean_water, hydroponics_water
+- `system_type` (optional): dirty_water, clean_water, hydroponics_water (default: dirty_water)
 - `date_from` (optional): Start date (defaults to 7 days ago)
 - `date_to` (optional): End date (defaults to today)
 - `interval` (optional): hourly, daily, weekly (default: daily)
 
 **Returns:**
-- Time-series data for all parameters
+- Time-series data for all 8 parameters (ph, tds, ec, turbidity, temperature, humidity, water_level, electric_current)
 - Min/max/average per interval
-- Statistical summary
+- Statistical summary (min, max, average, median)
 - Out-of-range occurrences (for hydroponics)
+
+**Parameters Tracked:**
+- All systems: ph, tds, ec, turbidity, temperature, humidity, water_level, electric_current
 
 ---
 
@@ -79,17 +82,47 @@
 **GET** `/api/v1/reports/water-quality/trends`
 
 **Query Parameters:**
-- `system_type` (required): dirty_water, clean_water, hydroponics_water
-- `parameter` (optional): ph, tds, ec, turbidity, temperature, humidity (default: ph)
+- `system_type` (optional): dirty_water, clean_water, hydroponics_water (default: dirty_water)
 - `days` (optional): 1-90 (default: 7)
 
 **Returns:**
-- Daily trend data for parameter
-- Target range (for hydroponics)
-- Trend analysis (improving/stable/declining)
-- Current vs historical average
-- Deviation count
-- Recommendations
+- Daily trend data for **multiple parameters** based on system type
+- Target ranges (for hydroponics only)
+- Trend analysis for each parameter (improving/stable/declining)
+- Current vs historical average for each parameter
+- Deviation count (for hydroponics)
+- Context-aware recommendations
+
+**Parameters Tracked by System Type:**
+- **dirty_water**: pH, Turbidity, TDS
+- **clean_water**: pH, Turbidity, TDS
+- **hydroponics_water**: pH, TDS, EC, Humidity
+
+**Response Structure:**
+```json
+{
+  "data": {
+    "labels": ["2026-01-13", "2026-01-14", ...],
+    "datasets": {
+      "ph": {
+        "label": "PH Level",
+        "data": [6.5, 6.8, 7.0, ...],
+        "target_min": null,
+        "target_max": null,
+        "unit": "pH",
+        "current_reading": 7.0,
+        "historical_average": 6.85,
+        "deviation_count": 0
+      },
+      "turbidity": { ... },
+      "tds": { ... }
+    },
+    "statistics": { ... },
+    "trends": { "ph": "stable", "turbidity": "improving", "tds": "stable" },
+    "recommendations": [...]
+  }
+}
+```
 
 ---
 

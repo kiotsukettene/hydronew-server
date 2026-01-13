@@ -20,7 +20,7 @@ class WaterQualityRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'system_type' => ['required', 'in:dirty_water,clean_water,hydroponics_water'],
+            'system_type' => ['nullable', 'in:dirty_water,clean_water,hydroponics_water'],
             'date_from' => ['nullable', 'date', 'before_or_equal:date_to'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'interval' => ['nullable', 'in:hourly,daily,weekly'],
@@ -35,7 +35,6 @@ class WaterQualityRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'system_type.required' => 'The system type is required.',
             'system_type.in' => 'The system type must be one of: dirty_water, clean_water, hydroponics_water.',
             'interval.in' => 'The interval must be one of: hourly, daily, weekly.',
             'parameter.in' => 'The parameter must be a valid sensor reading type.',

@@ -431,7 +431,7 @@ class ReportsController extends Controller
         $user = $request->user();
         $validated = $request->validated();
 
-        $systemType = $validated['system_type'];
+        $systemType = $validated['system_type'] ?? 'dirty_water';
         $interval = $validated['interval'] ?? 'daily';
         $dateFrom = $validated['date_from'] ?? Carbon::now()->subDays(7)->toDateString();
         $dateTo = $validated['date_to'] ?? Carbon::now()->toDateString();
@@ -478,8 +478,8 @@ class ReportsController extends Controller
         // Group readings by interval
         $groupedReadings = $this->analyticsService->groupByInterval($readings, $interval);
 
-        // Prepare time series data for each parameter
-        $parameters = ['ph', 'tds', 'ec', 'turbidity', 'temperature', 'humidity'];
+        // Prepare time series data for each parameter (all columns from sensor_readings table)
+        $parameters = ['ph', 'tds', 'ec', 'turbidity', 'temperature', 'humidity', 'water_level', 'electric_current'];
         $timeSeries = [];
 
         foreach ($groupedReadings as $timestamp => $groupReadings) {
@@ -549,9 +549,16 @@ class ReportsController extends Controller
         $user = $request->user();
         $validated = $request->validated();
 
-        $systemType = $validated['system_type'];
-        $parameter = $validated['parameter'] ?? 'ph';
+        $systemType = $validated['system_type'] ?? 'dirty_water';
         $days = $validated['days'] ?? 7;
+
+        // Determine which parameters to track based on system type
+        $parameters = match ($systemType) {
+            'dirty_water' => ['ph', 'turbidity', 'tds'],
+            'clean_water' => ['ph', 'turbidity', 'tds'],
+            'hydroponics_water' => ['ph', 'tds', 'ec', 'humidity'],
+            default => ['ph', 'turbidity', 'tds'],
+        };
 
         // Get user's devices
         $deviceIds = Device::where('user_id', $user->id)->pluck('id');
@@ -581,13 +588,14 @@ class ReportsController extends Controller
                 'status' => 'success',
                 'data' => [
                     'labels' => [],
-                    'dataset' => null,
+                    'datasets' => [],
                     'statistics' => null,
-                    'trend' => 'insufficient_data',
+                    'trends' => [],
+                    'recommendations' => [],
                 ],
                 'meta' => [
                     'system_type' => $systemType,
-                    'parameter' => $parameter,
+                    'parameters' => $parameters,
                     'days' => $days,
                     'generated_at' => Carbon::now()->toIso8601String(),
                 ],
@@ -599,83 +607,94 @@ class ReportsController extends Controller
             return Carbon::parse($reading->reading_time)->format('Y-m-d');
         });
 
-        $labels = [];
-        $data = [];
-
-        foreach ($dailyReadings as $date => $dayReadings) {
-            $labels[] = $date;
-            $values = $dayReadings->pluck($parameter)->filter(function ($value) {
-                return $value !== null;
-            });
-            $data[] = $values->isNotEmpty() ? round($values->avg(), 2) : null;
-        }
+        // Prepare labels (dates)
+        $labels = $dailyReadings->keys()->toArray();
 
         // Get target ranges (for hydroponics)
-        $targetMin = null;
-        $targetMax = null;
-
+        $targetRanges = [];
         if ($systemType === 'hydroponics_water') {
             $activeSetup = HydroponicSetup::where('user_id', $user->id)
                 ->where('status', 'active')
                 ->first();
 
             if ($activeSetup) {
-                if ($parameter === 'ph') {
-                    $targetMin = $activeSetup->target_ph_min;
-                    $targetMax = $activeSetup->target_ph_max;
-                } elseif ($parameter === 'tds') {
-                    $targetMin = $activeSetup->target_tds_min;
-                    $targetMax = $activeSetup->target_tds_max;
-                }
+                $targetRanges['ph'] = [
+                    'min' => $activeSetup->target_ph_min,
+                    'max' => $activeSetup->target_ph_max,
+                ];
+                $targetRanges['tds'] = [
+                    'min' => $activeSetup->target_tds_min,
+                    'max' => $activeSetup->target_tds_max,
+                ];
             }
         }
 
-        // Calculate statistics
-        $statistics = $this->analyticsService->calculateStatistics($readings, $parameter);
+        // Prepare datasets for each parameter
+        $datasets = [];
+        $statistics = [];
+        $trends = [];
+        $recommendations = [];
 
-        // Detect trend
-        $trend = $this->analyticsService->detectTrend($readings, $parameter);
+        foreach ($parameters as $parameter) {
+            // Prepare daily data for this parameter
+            $data = [];
+            foreach ($dailyReadings as $date => $dayReadings) {
+                $values = $dayReadings->pluck($parameter)->filter(function ($value) {
+                    return $value !== null;
+                });
+                $data[] = $values->isNotEmpty() ? round($values->avg(), 2) : null;
+            }
 
-        // Calculate deviations
-        $deviationCount = $targetMin !== null && $targetMax !== null
-            ? $this->analyticsService->calculateDeviations($readings, $parameter, $targetMin, $targetMax)
-            : 0;
+            // Calculate statistics
+            $paramStats = $this->analyticsService->calculateStatistics($readings, $parameter);
+            $statistics[$parameter] = $paramStats;
 
-        // Current vs historical average
-        $currentReading = $readings->last()->$parameter ?? null;
-        $historicalAverage = $statistics['average'];
+            // Detect trend
+            $trend = $this->analyticsService->detectTrend($readings, $parameter);
+            $trends[$parameter] = $trend;
 
-        // Generate recommendation based on trend
-        $recommendation = null;
-        if ($trend === 'declining' && $parameter === 'ph') {
-            $recommendation = 'pH levels are declining. Consider checking nutrient solution and adjusting pH levels.';
-        } elseif ($trend === 'declining' && $parameter === 'tds') {
-            $recommendation = 'TDS levels are declining. Plants may need additional nutrients.';
-        } elseif ($deviationCount > $readings->count() * 0.3) {
-            $recommendation = "Over 30% of readings are out of target range. Immediate adjustment recommended.";
+            // Calculate deviations (if target ranges exist)
+            $deviationCount = 0;
+            if (isset($targetRanges[$parameter])) {
+                $deviationCount = $this->analyticsService->calculateDeviations(
+                    $readings,
+                    $parameter,
+                    $targetRanges[$parameter]['min'],
+                    $targetRanges[$parameter]['max']
+                );
+            }
+
+            // Prepare dataset for this parameter
+            $datasets[$parameter] = [
+                'label' => strtoupper($parameter) . ' Level',
+                'data' => $data,
+                'target_min' => $targetRanges[$parameter]['min'] ?? null,
+                'target_max' => $targetRanges[$parameter]['max'] ?? null,
+                'unit' => $this->getParameterUnit($parameter),
+                'current_reading' => $readings->last()->$parameter ?? null,
+                'historical_average' => $paramStats['average'],
+                'deviation_count' => $deviationCount,
+            ];
+
+            // Generate recommendation based on trend and system type
+            $recommendation = $this->generateRecommendation($systemType, $parameter, $trend, $deviationCount, $readings->count());
+            if ($recommendation) {
+                $recommendations[] = $recommendation;
+            }
         }
 
         return response()->json([
             'status' => 'success',
             'data' => [
                 'labels' => $labels,
-                'dataset' => [
-                    'label' => strtoupper($parameter) . ' Level',
-                    'data' => $data,
-                    'target_min' => $targetMin,
-                    'target_max' => $targetMax,
-                    'unit' => $this->getParameterUnit($parameter),
-                ],
+                'datasets' => $datasets,
                 'statistics' => $statistics,
-                'trend' => $trend,
-                'current_reading' => $currentReading,
-                'historical_average' => $historicalAverage,
-                'deviation_count' => $deviationCount,
-                'recommendation' => $recommendation,
+                'trends' => $trends,
+                'recommendations' => $recommendations,
             ],
             'meta' => [
                 'system_type' => $systemType,
-                'parameter' => $parameter,
+                'parameters' => $parameters,
                 'days' => $days,
                 'total_readings' => $readings->count(),
                 'generated_at' => Carbon::now()->toIso8601String(),
@@ -699,6 +718,78 @@ class ReportsController extends Controller
             'electric_current' => 'A',
             default => '',
         };
+    }
+
+    /**
+     * Generate recommendation based on system type, parameter, and trend
+     */
+    private function generateRecommendation(
+        string $systemType,
+        string $parameter,
+        string $trend,
+        int $deviationCount,
+        int $totalReadings
+    ): ?string {
+        // Calculate deviation percentage
+        $deviationPercentage = $totalReadings > 0 ? ($deviationCount / $totalReadings) * 100 : 0;
+
+        // Recommendations for dirty_water and clean_water systems
+        if (in_array($systemType, ['dirty_water', 'clean_water'])) {
+            if ($parameter === 'turbidity') {
+                if ($trend === 'improving') {
+                    return 'Turbidity levels are improving. Water treatment is effective.';
+                } elseif ($trend === 'declining') {
+                    return 'Turbidity levels are increasing. Check filtration system and consider maintenance.';
+                }
+            } elseif ($parameter === 'ph') {
+                if ($trend === 'declining') {
+                    return 'pH levels are declining (becoming more acidic). Monitor water source and treatment process.';
+                } elseif ($trend === 'improving') {
+                    return 'pH levels are stabilizing. Continue current treatment protocols.';
+                }
+            } elseif ($parameter === 'tds') {
+                if ($trend === 'improving') {
+                    return 'TDS levels are decreasing. Water purification is working effectively.';
+                } elseif ($trend === 'declining') {
+                    return 'TDS levels are increasing. Check filtration stages and cleaning cycles.';
+                }
+            }
+        }
+
+        // Recommendations for hydroponics_water system
+        if ($systemType === 'hydroponics_water') {
+            if ($deviationPercentage > 30) {
+                return "Over 30% of {$parameter} readings are out of target range. Immediate adjustment recommended.";
+            }
+
+            if ($parameter === 'ph') {
+                if ($trend === 'declining') {
+                    return 'pH levels are declining. Consider checking nutrient solution and adjusting pH levels.';
+                } elseif ($trend === 'improving') {
+                    return 'pH levels are improving and moving toward optimal range.';
+                }
+            } elseif ($parameter === 'tds') {
+                if ($trend === 'declining') {
+                    return 'TDS levels are declining. Plants may need additional nutrients.';
+                } elseif ($trend === 'improving') {
+                    return 'TDS levels are increasing. Monitor to ensure levels stay within target range.';
+                }
+            } elseif ($parameter === 'ec') {
+                if ($trend === 'declining') {
+                    return 'EC levels are declining. Check nutrient concentration in solution.';
+                } elseif ($trend === 'improving') {
+                    return 'EC levels are stable. Nutrient solution is properly balanced.';
+                }
+            } elseif ($parameter === 'humidity') {
+                if ($trend === 'declining') {
+                    return 'Humidity levels are declining. Consider increasing misting or ventilation control.';
+                } elseif ($trend === 'improving') {
+                    return 'Humidity levels are rising. Ensure proper ventilation to prevent mold growth.';
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
