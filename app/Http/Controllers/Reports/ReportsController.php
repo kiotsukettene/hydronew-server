@@ -671,7 +671,6 @@ class ReportsController extends Controller
                 'target_min' => $targetRanges[$parameter]['min'] ?? null,
                 'target_max' => $targetRanges[$parameter]['max'] ?? null,
                 'unit' => $this->getParameterUnit($parameter),
-                'current_reading' => $readings->last()->$parameter ?? null,
                 'historical_average' => $paramStats['average'],
                 'deviation_count' => $deviationCount,
             ];
