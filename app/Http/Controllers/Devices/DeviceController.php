@@ -7,10 +7,10 @@ use Illuminate\Http\Request;
 
 class DeviceController extends Controller
 {
-    public create paringToken (Request $request)
-    {
-        // Validate the request data
-        $user = $request->user();
+    // public create paringToken (Request $request)
+    // {
+    //     // Validate the request data
+    //     $user = $request->user();
         
-    }
+    // }
 }
