@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Models\HydroponicSetup;
 use App\Models\SensorSystem;
 use App\Models\SensorReading;
 use Illuminate\Http\Request;
@@ -21,7 +22,7 @@ class DashboardController extends Controller
     }
 
     /**
-     * Dashboard index - returns only pH levels from all sensor systems
+     * Dashboard index - returns pH levels and nearest to harvest setup
      */
     public function index(Request $request)
     {
@@ -56,10 +57,53 @@ class DashboardController extends Controller
             ];
         }
 
+        // Get nearest to harvest setup
+        $nearestToHarvest = $this->getNearestToHarvestSetup($user->id);
+
         return response()->json([
             'user' => $user->first_name ?? $user->name,
             'device_id' => $deviceId,
             'ph_levels' => $phData,
+            'nearest_to_harvest' => $nearestToHarvest,
         ]);
+    }
+
+    /**
+     * Get the hydroponic setup nearest to harvest
+     */
+    private function getNearestToHarvestSetup(int $userId): ?array
+    {
+        // Get active setups that are not yet harvested and have a harvest date
+        $setup = HydroponicSetup::where('user_id', $userId)
+            ->where('harvest_status', '!=', 'harvested')
+            ->where('is_archived', false)
+            ->where('status', 'active')
+            ->whereNotNull('harvest_date')
+            ->orderBy('harvest_date', 'asc')
+            ->first();
+
+        if (!$setup) {
+            return null;
+        }
+
+        // Calculate growth percentage (same logic as HydroponicSetupController)
+        $setupDate = \Carbon\Carbon::parse($setup->setup_date);
+        $now = \Carbon\Carbon::now();
+        $growthPercentage = 0;
+
+        if ($setup->harvest_date) {
+            $harvestDate = \Carbon\Carbon::parse($setup->harvest_date);
+            $totalDays = $setupDate->diffInDays($harvestDate);
+            if ($totalDays > 0) {
+                $daysPassed = $setupDate->diffInDays($now);
+                $growthPercentage = min(100, round((($daysPassed / $totalDays) * 100), 0));
+            }
+        }
+
+        return [
+            'setup_id' => $setup->id,
+            'crop_name' => $setup->crop_name,
+            'growth_percentage' => $growthPercentage,
+        ];
     }
 }
