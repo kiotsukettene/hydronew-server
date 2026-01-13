@@ -136,6 +136,63 @@ class HydroponicSetupController extends Controller
         ], 201);
     }
 
+    public function update(StoreHydroponicsRequest $request, HydroponicSetup $setup)
+    {
+        // Check if setup belongs to the authenticated user
+        if ($setup->user_id !== Auth::id()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized. This setup does not belong to you.',
+            ], 403);
+        }
+
+        // Check if setup is already harvested
+        if ($setup->harvest_status === 'harvested') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Cannot edit a harvested setup.',
+            ], 400);
+        }
+
+        $validated = $request->validated();
+
+        // Prevent changing certain fields
+        unset($validated['user_id']);
+        unset($validated['setup_date']);
+        unset($validated['harvest_status']);
+        unset($validated['status']);
+
+        // Update the setup
+        $setup->update($validated);
+
+        // Calculate plant_age and days_left
+        $setupDate = Carbon::parse($setup->setup_date);
+        $now = Carbon::now();
+        $plantAge = (int) $setupDate->diffInDays($now);
+
+        $daysLeft = 0;
+        if ($setup->harvest_date) {
+            $harvestDate = Carbon::parse($setup->harvest_date);
+            $daysLeft = max(0, (int) $now->diffInDays($harvestDate, false));
+        }
+
+        // Recalculate growth_stage after update
+        $growthStage = $this->calculateGrowthStage($plantAge, $setup->harvest_date, $now);
+        if ($setup->growth_stage !== $growthStage) {
+            $setup->update(['growth_stage' => $growthStage]);
+            $setup->growth_stage = $growthStage;
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Hydroponic setup updated successfully.',
+            'data' => array_merge($setup->fresh()->toArray(), [
+                'plant_age' => $plantAge,
+                'days_left' => $daysLeft,
+            ]),
+        ]);
+    }
+
     public function markAsHarvested(HydroponicSetup $setup)
     {
         // Check if setup belongs to the authenticated user

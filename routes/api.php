@@ -18,6 +18,7 @@ use App\Http\Controllers\Hydroponics\HydroponicYieldController;
 use App\Http\Controllers\TipsSuggestions\TipsController;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Log;
 
 // Route::get('/user', function (Request $request) {
@@ -111,7 +112,8 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('v1/hydroponic-setups', [HydroponicSetupController::class, 'index']);
     Route::get('v1/hydroponic-setups/{setup}', [HydroponicSetupController::class, 'show']);
     Route::post('v1/hydroponic-setups/store', [HydroponicSetupController::class, 'store']);
-    Route::post('v1/hydroponic-setups/{setup}/mark-harvested', [HydroponicSetupController::class, 'markAsHarvested']);
+    Route::put('v1/hydroponic-setups/{setup}', [HydroponicSetupController::class, 'update']);
+    Route::post('v1/hydroponic-setups/{setup}/mark-harvested',[HydroponicSetupController::class, 'markAsHarvested']);
 
     Route::get('v1/hydroponic-yields', [HydroponicYieldController::class, 'index']);
     Route::get('v1/hydroponic-yields/{setup}', [HydroponicYieldController::class, 'show']);
