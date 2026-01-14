@@ -22,7 +22,7 @@ class SensorSystemFactory extends Factory
     {
         return [
             'device_id' => Device::factory(),
-            'system_type' => fake()->randomElement(['water_quality', 'environmental', 'nutrient']),
+            'system_type' => fake()->randomElement(['clean_water', 'dirty_water', 'hydroponics_water']),
             'name' => fake()->randomElement(['pH Sensor', 'TDS Sensor', 'Temperature Sensor', 'Humidity Sensor']),
             'is_active' => fake()->boolean(80), // 80% chance of being active
         ];

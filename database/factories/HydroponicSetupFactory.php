@@ -24,7 +24,7 @@ class HydroponicSetupFactory extends Factory
             'user_id' => User::factory(),
             'crop_name' => fake()->randomElement(['Lettuce', 'Tomato', 'Cucumber', 'Spinach', 'Basil', 'Strawberry']),
             'number_of_crops' => fake()->numberBetween(10, 100),
-            'bed_size' => fake()->randomElement(['Small (1x2m)', 'Medium (2x4m)', 'Large (4x8m)']),
+            'bed_size' => fake()->randomElement(['small', 'medium', 'large', 'custom']),
             'pump_config' => [
                 'pump_type' => fake()->randomElement(['submersible', 'inline']),
                 'flow_rate' => fake()->numberBetween(100, 500),
@@ -37,10 +37,10 @@ class HydroponicSetupFactory extends Factory
             'water_amount' => fake()->numberBetween(50, 500) . ' liters',
             'setup_date' => fake()->dateTimeBetween('-6 months', 'now'),
             'harvest_date' => fake()->dateTimeBetween('now', '+3 months'),
-            'harvest_status' => fake()->randomElement(['pending', 'ready', 'harvested']),
+            'harvest_status' => fake()->randomElement(['not_harvested', 'harvested']),
             'status' => fake()->randomElement(['active', 'inactive', 'maintenance']),
-            'growth_stage' => fake()->randomElement(['seedling', 'vegetative', 'flowering', 'harvest']),
-            'health_status' => fake()->randomElement(['healthy', 'needs attention', 'critical']),
+            'growth_stage' => fake()->randomElement(['seedling', 'vegetative', 'flowering', 'harvest-ready', 'harvested', 'overgrown']),
+            'health_status' => fake()->randomElement(['good', 'moderate', 'poor']),
             'is_archived' => fake()->boolean(10), // 10% chance of being archived
         ];
     }
