@@ -57,13 +57,6 @@ class AccountController extends Controller
     {
         $user = $request->user();
 
-        if (!$request->hasFile('profile_picture')) {
-            return response()->json([
-                'message' => 'No file uploaded.',
-                'debug' => $request->all(),
-            ], 400);
-        }
-
         $validated = $request->validate([
             'profile_picture' => 'required|image|max:2048',
         ]);
