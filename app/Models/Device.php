@@ -30,9 +30,7 @@ class Device extends Model
      */
     public function users()
     {
-        return $this->belongsToMany(User::class)
-            ->withPivot('role')
-            ->withTimestamps();
+        return $this->belongsToMany(User::class, 'device_users', 'device_id', 'user_id');
     }
 
     /**

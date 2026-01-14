@@ -33,6 +33,8 @@ Route::get('v1/help-center', [HelpCenterController::class, 'index']);
 
 Route::post('v1/google-login', [FirebaseController::class, 'signInWithGoogleAuth']);
 
+Route::post('v1/devices/provision', [DeviceController::class, 'provision']);
+
 
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -92,7 +94,6 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::post('v1/devices/connect', [DeviceController::class, 'connectDevice']);
     Route::post('v1/devices/{device}/disconnect', [DeviceController::class, 'disconnectDevice']);
     Route::post('v1/devices/pairing-token', [DeviceController::class, 'pairingToken']);
-    Route::post('v1/devices/provision', [DeviceController::class, 'provision']);
 
     Route::get('v1/water-monitoring', [WaterMonitoringController::class, 'index']);
 
