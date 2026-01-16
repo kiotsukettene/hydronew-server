@@ -18,25 +18,25 @@ class AccountController extends Controller
     {
         $user = Auth::user();
 
-        $ownedDevices = Device::where('user_id', $user->id)->count();
-
-        $email = $user->email;
-
+        $ownedDevicesCount = $user->devices()->count();
+        $ownedDevices = $user->devices()->get(); // optional if you want device info
 
         return response()->json([
             'data' => [
                 'id' => $user->id,
                 'first_name' => $user->first_name,
                 'last_name' => $user->last_name,
-                'email' => $email,
+                'email' => $user->email,
                 'address' => $user->address,
-                'owned_devices_count' => $ownedDevices,
+                'owned_devices_count' => $ownedDevicesCount,
+                'devices' => $ownedDevices, // optional, include device details
                 'profile_picture' => $user->profile_picture
                     ? asset('storage/' . $user->profile_picture)
                     : null,
             ]
         ]);
     }
+
 
     public function update(UpdateAccountRequest $request, User $user)
     {

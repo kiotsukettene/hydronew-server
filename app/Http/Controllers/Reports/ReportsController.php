@@ -478,8 +478,14 @@ class ReportsController extends Controller
         // Group readings by interval
         $groupedReadings = $this->analyticsService->groupByInterval($readings, $interval);
 
-        // Prepare time series data for each parameter (all columns from sensor_readings table)
-        $parameters = ['ph', 'tds', 'ec', 'turbidity', 'temperature', 'humidity', 'water_level', 'electric_current'];
+        // Determine which parameters to track based on system type
+        $parameters = match ($systemType) {
+            'dirty_water' => ['ph', 'tds', 'turbidity'],
+            'clean_water' => ['ph', 'tds', 'turbidity'],
+            'hydroponics_water' => ['ph', 'tds', 'ec', 'humidity'],
+            default => ['ph', 'tds', 'turbidity'],
+        };
+
         $timeSeries = [];
 
         foreach ($groupedReadings as $timestamp => $groupReadings) {

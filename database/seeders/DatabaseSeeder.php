@@ -15,6 +15,7 @@ use Database\Seeders\TipsSuggestionsSeeder;
 use Database\Seeders\TreatmentStagesSeeder;
 use Database\Seeders\TreatmentReportsSeeder;
 use Database\Seeders\DeviceUserSeeder;
+use Database\Seeders\PairingTokenSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -38,6 +39,7 @@ class DatabaseSeeder extends Seeder
             NotificationSeeder::class,
             HelpCenterSeeder::class,
             DeviceUserSeeder::class,
+            PairingTokenSeeder::class,
         ]);
     }
 }
