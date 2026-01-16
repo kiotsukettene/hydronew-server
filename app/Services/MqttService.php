@@ -39,11 +39,11 @@ class MqttService
     /**
      * Publish a message to a topic.
      * @param string $topic
-     * @param array $payload
+     * @param string|array $payload
      * @param int $qos
      * @param bool $retain Retain the message for offline subscribers
      */
-    public function publish(string $topic, array $payload, int $qos = 1, bool $retain = false): void
+    public function publish(string $topic, string|array $payload, int $qos = 1, bool $retain = false): void
     {
         try {
             $this->connect();
@@ -52,7 +52,7 @@ class MqttService
                 $topic,
                 json_encode($payload),
                 $qos,
-                $retain 
+                $retain
             );
 
             Log::info("Published to MQTT topic {$topic}", ['payload' => $payload, 'retain' => $retain]);

@@ -74,7 +74,7 @@ public function provision(Request $request)
         ->first();
 
     if ($existingLink) {
-        
+            app(MqttService::class)->publish("devices/{$pairingToken->user_id}/pairing", "User already paired", 1, true);
         return response()->json([
             'message' => 'You already paired with this device'
         ], 409);
