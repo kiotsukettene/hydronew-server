@@ -15,8 +15,6 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('user_id');
             $table->bigInteger('device_id')->nullable();
-            $table->string('token')->unique();
-            $table->timestamp('expires_at');
             $table->timestamp('created_at')->useCurrent();
             $table->timestamp('updated_at')->useCurrentOnUpdate()->useCurrent();
         });
