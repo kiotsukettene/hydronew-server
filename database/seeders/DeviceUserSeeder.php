@@ -6,6 +6,7 @@ use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use App\Models\Device;
 use App\Models\DeviceUser;
+use App\Models\User;
 
 class DeviceUserSeeder extends Seeder
 {
@@ -14,11 +15,11 @@ class DeviceUserSeeder extends Seeder
      */
     public function run(): void
     {
+        $user = User::first();
         $device = Device::first();
         DeviceUser::firstOrCreate([
-            'user_id' => '1',
+            'user_id' => $user->id,
             'device_id' => $device->id,
-            'expires_at' => now()->addHours(2),
         ]);
 
     }
