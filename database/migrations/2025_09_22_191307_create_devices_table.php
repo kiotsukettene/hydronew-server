@@ -13,8 +13,7 @@ return new class extends Migration
     {
         Schema::create('devices', function (Blueprint $table) {
             $table->bigInteger('id', true);
-            $table->bigInteger('user_id')->index('user_id');
-            $table->string('name', 150);
+            $table->string('device_name', 150);
             $table->string('serial_number', 150)->unique('serial_number');
             $table->string('model', 100)->nullable();
             $table->string('firmware_version', 50)->nullable();
