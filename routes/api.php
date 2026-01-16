@@ -37,6 +37,8 @@ Route::get('v1/help-center', [HelpCenterController::class, 'index']);
 
 Route::post('v1/google-login', [FirebaseController::class, 'signInWithGoogleAuth']);
 
+Route::post('v1/devices/provision', [DeviceController::class, 'provision']);
+
 
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -95,10 +97,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('v1/devices', [DeviceController::class, 'index']);
     Route::post('v1/devices/connect', [DeviceController::class, 'connectDevice']);
     Route::post('v1/devices/{device}/disconnect', [DeviceController::class, 'disconnectDevice']);
-    
-    // MQTT Sensor Data endpoints
-    Route::post('v1/devices/sensor-data', [MQTTSensorDataController::class, 'store']);
-    Route::get('v1/devices/{deviceId}/sensor-data', [MQTTSensorDataController::class, 'show']);
+    Route::post('v1/devices/pairing-token', [DeviceController::class, 'pairingToken']);
 
     Route::get('v1/water-monitoring', [WaterMonitoringController::class, 'index']);
 
