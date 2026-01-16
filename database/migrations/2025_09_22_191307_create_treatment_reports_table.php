@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('treatment_reports', function (Blueprint $table) {
             $table->bigInteger('id', true);
-            $table->bigInteger('device_id')->index('device_id');
+            $table->bigInteger('device_id');
             $table->dateTime('start_time');
             $table->dateTime('end_time')->nullable();
             $table->enum('final_status', ['pending', 'success', 'failed'])->nullable()->default('pending');

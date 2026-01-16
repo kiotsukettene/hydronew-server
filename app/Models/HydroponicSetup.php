@@ -58,6 +58,8 @@ class HydroponicSetup extends Model
         'harvest_date',
         'harvest_status',
         'status',
+        'growth_stage',
+        'health_status',
         'is_archived',
     ];
 
@@ -69,11 +71,6 @@ class HydroponicSetup extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function logs()
-    {
-        return $this->hasMany(HydroponicSetupLog::class, 'hydroponic_setup_id');
     }
 
     
