@@ -13,10 +13,11 @@ return new class extends Migration
     {
         Schema::create('devices', function (Blueprint $table) {
             $table->bigInteger('id', true);
-            $table->bigInteger('user_id')->index('user_id');
-            $table->string('name', 150);
+            $table->string('device_name', 150);
             $table->string('serial_number', 150)->unique('serial_number');
-            $table->enum('status', ['connected', 'not connected'])->nullable()->default('not connected');
+            $table->string('model', 100)->nullable();
+            $table->string('firmware_version', 50)->nullable();
+            $table->enum('status', ['online', 'offline'])->nullable()->default('offline');
             $table->timestamp('created_at')->useCurrent();
             $table->timestamp('updated_at')->useCurrentOnUpdate()->useCurrent();
         });

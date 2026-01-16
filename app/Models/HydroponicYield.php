@@ -7,6 +7,7 @@
 namespace App\Models;
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -28,31 +29,33 @@ use Illuminate\Database\Eloquent\Model;
  */
 class HydroponicYield extends Model
 {
+    use HasFactory;
+
     protected $table = 'hydroponic_yields';
     public $timestamps = false;
 
     protected $casts = [
         'hydroponic_setup_id' => 'integer',
-        'predicted_yield' => 'float',
-        'actual_yield' => 'float',
-        'system_generated' => 'boolean',
-        'harvest_date' => 'datetime',
+        'total_weight' => 'float',
+        'total_count' => 'integer',
+        'is_archived' => 'boolean',
     ];
 
     protected $fillable = [
         'hydroponic_setup_id',
-        'harvest_status',
-        'growth_stage',
-        'health_status',
-        'predicted_yield',
-        'actual_yield',
-        'harvest_date',
-        'system_generated',
+        'total_weight',
+        'total_count',
         'notes',
+        'is_archived',
     ];
 
     public function hydroponic_setup()
     {
         return $this->belongsTo(HydroponicSetup::class, 'hydroponic_setup_id');
     }
+
+    public function grades()
+{
+    return $this->hasMany(HydroponicYieldGrade::class);
+}
 }

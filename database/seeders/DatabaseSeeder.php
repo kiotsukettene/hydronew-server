@@ -14,6 +14,8 @@ use Database\Seeders\HydroponicYieldSeeder;
 use Database\Seeders\TipsSuggestionsSeeder;
 use Database\Seeders\TreatmentStagesSeeder;
 use Database\Seeders\TreatmentReportsSeeder;
+use Database\Seeders\DeviceUserSeeder;
+use Database\Seeders\PairingTokenSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -27,7 +29,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             UsersSeeder::class,
             DevicesSeeder::class,
-            SensorsSeeder::class,
+            SensorSystemSeeder::class,
             SensorReadingsSeeder::class,
             TreatmentReportsSeeder::class,
             TreatmentStagesSeeder::class,
@@ -36,6 +38,8 @@ class DatabaseSeeder extends Seeder
             TipsSuggestionsSeeder::class,
             NotificationSeeder::class,
             HelpCenterSeeder::class,
+            DeviceUserSeeder::class,
+            PairingTokenSeeder::class,
         ]);
     }
 }

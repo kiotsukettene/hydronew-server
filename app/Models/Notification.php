@@ -7,6 +7,7 @@
 namespace App\Models;
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -26,6 +27,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Notification extends Model
 {
+	use HasFactory;
+
 	protected $table = 'notifications';
 	public $timestamps = false;
 
@@ -38,8 +41,11 @@ class Notification extends Model
 	protected $fillable = [
 		'user_id',
 		'device_id',
+		'title',
 		'message',
-		'is_read'
+		'type',
+		'is_read',
+		'created_at'
 	];
 
 	public function user()

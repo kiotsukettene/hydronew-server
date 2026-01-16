@@ -8,6 +8,7 @@ namespace App\Models;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -26,6 +27,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class HydroponicSetup extends Model
 {
+    use HasFactory;
+
     protected $table = 'hydroponic_setup';
     public $timestamps = false;
 
@@ -38,6 +41,8 @@ class HydroponicSetup extends Model
         'target_tds_min' => 'float',
         'target_tds_max' => 'float',
         'setup_date' => 'datetime',
+        'harvest_date' => 'date',
+        'is_archived' => 'boolean',
     ];
 
     protected $fillable = [
@@ -53,7 +58,12 @@ class HydroponicSetup extends Model
         'target_tds_max',
         'water_amount',
         'setup_date',
+        'harvest_date',
+        'harvest_status',
         'status',
+        'growth_stage',
+        'health_status',
+        'is_archived',
     ];
 
     public function hydroponic_yields()
@@ -64,5 +74,46 @@ class HydroponicSetup extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    
+    public function scopeFilter($query, array $filters)
+{
+    if ($filters['search'] ?? false) {
+        $query->where('crop_name', 'like', '%' . $filters['search'] . '%');
+    }
+
+    if ($filters['month'] ?? false) {
+        $dateType = $filters['date_type'] ?? 'harvest';
+        $month = $filters['month'];
+        
+        if (preg_match('/^\d{1,2}$/', $month)) {
+            $year = date('Y');
+            $month = str_pad($month, 2, '0', STR_PAD_LEFT);
+        } elseif (preg_match('/^\d{4}-\d{2}$/', $month)) {
+            $year = substr($month, 0, 4);
+            $month = substr($month, 5, 2);
+        } else {
+            return $query;
+        }
+        
+        $startDate = Carbon::createFromDate($year, $month, 1)->startOfDay();
+        $endDate = Carbon::createFromDate($year, $month, 1)->endOfMonth()->endOfDay();
+        
+        if ($dateType === 'setup') {
+            $query->whereDate('setup_date', '>=', $startDate->toDateString())
+                  ->whereDate('setup_date', '<=', $endDate->toDateString());
+        } else {
+            $query->whereYear('harvest_date', '=', $year)
+                  ->whereMonth('harvest_date', '=', $month);
+        }
+    }
+
+    return $query;
+}
+
+    public function scopeHarvested($query)
+    {
+        return $query->where('harvest_status', 'harvested');
     }
 }

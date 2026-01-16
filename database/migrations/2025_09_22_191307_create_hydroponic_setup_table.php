@@ -18,7 +18,7 @@ return new class extends Migration
             // Crop and setup configuration
             $table->string('crop_name', 100);
             $table->integer('number_of_crops')->default(0);
-            $table->enum('bed_size', ['small', 'medium', 'large']);
+            $table->enum('bed_size', ['small', 'medium', 'large', 'custom']);
             $table->json('pump_config')->nullable();
             $table->string('nutrient_solution', 255)->nullable();
 
@@ -29,10 +29,19 @@ return new class extends Migration
             $table->decimal('target_tds_max', 6, 2);
 
             // Other details
+            $table->enum('harvest_status', ['not_harvested', 'harvested'])->nullable()->default('not_harvested');
+            $table->enum('growth_stage', ['seedling', 'vegetative', 'flowering', 'harvest-ready', 'harvested', 'overgrown'])
+            ->nullable()
+            ->default('seedling');
+            $table->enum('health_status', ['good', 'moderate', 'poor'])
+            ->nullable()
+            ->default('good');
+            $table->date('harvest_date')->nullable();
             $table->string('water_amount', 50)->nullable();
             $table->dateTime('setup_date')->nullable();
             $table->enum('status', ['active', 'inactive', 'maintenance'])->nullable()->default('active');
-
+            $table->boolean('is_archived')->default(false);
+            
 
             $table->timestamps();
         });
