@@ -11,8 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('hydroponic_setup_logs', function (Blueprint $table) {
-             $table->foreign(['hydroponic_setup_id'], 'hydroponic_setup_logs_ibfk_1')->references(['id'])->on('hydroponic_setup')->onUpdate('restrict')->onDelete('cascade');
+        Schema::create('pairing_tokens', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('user_id');
+            $table->string('token_hash');
+            $table->timestamp('expires_at');
+            $table->timestamp('used_at')->nullable();
+            $table->timestamps();
         });
     }
 
@@ -21,8 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('hydroponic_setup_logs', function (Blueprint $table) {
-            //
-        });
+        Schema::dropIfExists('pairing_tokens');
     }
 };

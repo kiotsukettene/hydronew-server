@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('notifications', function (Blueprint $table) {
             $table->bigInteger('id', true);
-            $table->bigInteger('user_id')->index('user_id');
-            $table->bigInteger('device_id')->index('device_id');
+            $table->bigInteger('user_id');
+            $table->bigInteger('device_id');
             $table->text('message');
             $table->boolean('is_read')->nullable()->default(false);
             $table->timestamp('created_at')->useCurrent();

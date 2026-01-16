@@ -8,14 +8,18 @@ use App\Http\Controllers\Dashboard\DashboardController;
 use App\Http\Controllers\HelpCenter\HelpCenterController;
 use App\Http\Controllers\WaterQuality\WaterMonitoringController;
 use App\Http\Controllers\Notification\NotificationController;
+use App\Http\Controllers\Reports\ReportsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Devices\DeviceController;
+use App\Http\Controllers\Devices\MQTTSensorDataController;
 use App\Http\Controllers\Hydroponics\HydroponicSetupController;
 use App\Http\Controllers\Hydroponics\HydroponicYieldController;
 use App\Http\Controllers\TipsSuggestions\TipsController;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
+use Illuminate\Support\Facades\Broadcast;
+use Illuminate\Support\Facades\Log;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -33,6 +37,8 @@ Route::get('v1/help-center', [HelpCenterController::class, 'index']);
 
 Route::post('v1/google-login', [FirebaseController::class, 'signInWithGoogleAuth']);
 
+Route::post('v1/devices/provision', [DeviceController::class, 'provision']);
+
 
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -48,34 +54,34 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     // Routes that require both Sanctum auth and email verification
 
      Route::post('v1/broadcasting/auth', function (Request $request) {
-    \Log::info('=== Broadcasting Auth Request ===');
-    \Log::info('Socket ID: ' . $request->input('socket_id'));
-    \Log::info('Channel Name: ' . $request->input('channel_name'));
-    \Log::info('Raw Channel Name: ' . json_encode($request->input('channel_name')));
-    \Log::info('User: ' . ($request->user() ? $request->user()->id : 'Not authenticated'));
+    Log::info('=== Broadcasting Auth Request ===');
+    Log::info('Socket ID: ' . $request->input('socket_id'));
+    Log::info('Channel Name: ' . $request->input('channel_name'));
+    Log::info('Raw Channel Name: ' . json_encode($request->input('channel_name')));
+    Log::info('User: ' . ($request->user() ? $request->user()->id : 'Not authenticated'));
 
     // Check if channel name starts with 'private-'
     $channelName = $request->input('channel_name');
     if (!str_starts_with($channelName, 'private-')) {
-        \Log::error('Channel name does not start with private-');
+        Log::error('Channel name does not start with private-');
     }
 
     // Extract the actual channel name without prefix
     $cleanChannelName = str_replace('private-', '', $channelName);
-    \Log::info('Clean channel name: ' . $cleanChannelName);
+    Log::info('Clean channel name: ' . $cleanChannelName);
 
     if (!$request->user()) {
-        \Log::error('No authenticated user found');
+        Log::error('No authenticated user found');
         return response()->json(['error' => 'Unauthenticated'], 403);
     }
 
     try {
         $result = Broadcast::auth($request);
-        \Log::info('Broadcasting auth successful');
+        Log::info('Broadcasting auth successful');
         return $result;
     } catch (\Exception $e) {
-        \Log::error('Broadcasting auth failed: ' . $e->getMessage());
-        \Log::error('Stack trace: ' . $e->getTraceAsString());
+        Log::error('Broadcasting auth failed: ' . $e->getMessage());
+        Log::error('Stack trace: ' . $e->getTraceAsString());
         return response()->json(['error' => $e->getMessage()], 403);
     }
 });
@@ -91,6 +97,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('v1/devices', [DeviceController::class, 'index']);
     Route::post('v1/devices/connect', [DeviceController::class, 'connectDevice']);
     Route::post('v1/devices/{device}/disconnect', [DeviceController::class, 'disconnectDevice']);
+    Route::post('v1/devices/pairing-token', [DeviceController::class, 'pairingToken']);
 
     Route::get('v1/water-monitoring', [WaterMonitoringController::class, 'index']);
 
@@ -104,11 +111,28 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('v1/hydroponic-setups', [HydroponicSetupController::class, 'index']);
     Route::get('v1/hydroponic-setups/{setup}', [HydroponicSetupController::class, 'show']);
     Route::post('v1/hydroponic-setups/store', [HydroponicSetupController::class, 'store']);
-    Route::post('v1/hydroponic-setups/{setup}/mark-harvested', [HydroponicSetupController::class, 'markAsHarvested']);
+    Route::put('v1/hydroponic-setups/{setup}', [HydroponicSetupController::class, 'update']);
+    Route::post('v1/hydroponic-setups/{setup}/mark-harvested',[HydroponicSetupController::class, 'markAsHarvested']);
 
     Route::get('v1/hydroponic-yields', [HydroponicYieldController::class, 'index']);
     Route::get('v1/hydroponic-yields/{setup}', [HydroponicYieldController::class, 'show']);
     Route::post('v1/hydroponic-yields/{setup}/store', [HydroponicYieldController::class, 'storeYield']);
 
     Route::get('v1/tips-suggestion', [TipsController::class, 'generateTips']);
+
+    // Reports and Analytics endpoints
+    Route::prefix('v1/reports')->group(function () {
+        // Crop analytics
+        Route::get('/crop-performance', [ReportsController::class, 'cropPerformance']);
+        Route::get('/crop-comparison', [ReportsController::class, 'cropComparison']);
+        Route::get('/yield-summary', [ReportsController::class, 'yieldSummary']);
+
+        // Water quality
+        Route::get('/water-quality/historical', [ReportsController::class, 'waterQualityHistorical']);
+        Route::get('/water-quality/trends', [ReportsController::class, 'waterQualityTrends']);
+
+        // Treatment performance
+        Route::get('/treatment-performance', [ReportsController::class, 'treatmentPerformance']);
+        Route::get('/treatment-efficiency', [ReportsController::class, 'treatmentEfficiency']);
+    });
 });

@@ -3,15 +3,17 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Models\Sensor;
+use App\Models\HydroponicSetup;
+use App\Models\SensorSystem;
 use App\Models\SensorReading;
 use Illuminate\Http\Request;
-use Illuminate\Routing\Controllers\HasMiddleware;
-use Illuminate\Routing\Controllers\Middleware;
 
 class DashboardController extends Controller
 {
-    private function getPhStatus($value)
+    /**
+     * Get pH status based on value
+     */
+    private function getPhStatus(?float $value): string
     {
         if (is_null($value)) return 'Unknown';
         if ($value >= 6.0 && $value <= 7.5) return 'Good';
@@ -19,33 +21,89 @@ class DashboardController extends Controller
         return 'Alkaline';
     }
 
+    /**
+     * Dashboard index - returns pH levels and nearest to harvest setup
+     */
     public function index(Request $request)
     {
         $user = $request->user();
+        $deviceId = $request->input('device_id', 1); // Default to device 1
 
-        // Get the "pH" sensor
-        $phSensor = Sensor::where('type', '=', 'ph')->first();
+        // Get all sensor systems for the device with their latest readings
+        $sensorSystems = SensorSystem::where('device_id', $deviceId)
+    ->where('is_active', true)
+    ->where('system_type', '=', 'clean_water')
+    ->with('latestReading')
+    ->get();
 
-        if (!$phSensor) {
+        if ($sensorSystems->isEmpty()) {
             return response()->json([
-                'message' => 'No pH sensor found.',
+                'message' => 'No active sensor systems found for this device.',
+                'device_id' => $deviceId,
             ], 404);
         }
 
-        // Get the latest reading for that sensor
-        $latestPhReading = $phSensor->sensor_readings()
-            ->select('id', 'sensor_id', 'reading_value', 'reading_time')
-            ->latest(column: 'reading_time')
-            ->first();
+        // Format the response with only pH data
+        $phData = [];
+
+        foreach ($sensorSystems as $system) {
+            $latestReading = $system->latestReading;
+
+            $phData[$system->system_type] = [
+                'value' => $latestReading?->ph,
+                'unit' => 'pH',
+                'time' => $latestReading?->reading_time,
+                'status' => $this->getPhStatus($latestReading?->ph),
+            ];
+        }
+
+        // Get nearest to harvest setup
+        $nearestToHarvest = $this->getNearestToHarvestSetup($user->id);
 
         return response()->json([
-            'user' => $user->first_name,
-            'ph_level' => [
-                'value' => $latestPhReading?->reading_value,
-                'unit' => $phSensor->unit,
-                'time' => $latestPhReading?->reading_time,
-                'status' => $this->getPhStatus($latestPhReading?->reading_value),
-            ]
+            'user' => $user->first_name ?? $user->name,
+            'device_id' => $deviceId,
+            'ph_levels' => $phData,
+            'nearest_to_harvest' => $nearestToHarvest,
         ]);
+    }
+
+    /**
+     * Get the hydroponic setup nearest to harvest
+     */
+    private function getNearestToHarvestSetup(int $userId): ?array
+    {
+        // Get active setups that are not yet harvested and have a harvest date
+        $setup = HydroponicSetup::where('user_id', $userId)
+            ->where('harvest_status', '!=', 'harvested')
+            ->where('is_archived', false)
+            ->where('status', 'active')
+            ->whereNotNull('harvest_date')
+            ->orderBy('harvest_date', 'asc')
+            ->first();
+
+        if (!$setup) {
+            return null;
+        }
+
+        // Calculate growth percentage (same logic as HydroponicSetupController)
+        $setupDate = \Carbon\Carbon::parse($setup->setup_date);
+        $now = \Carbon\Carbon::now();
+        $growthPercentage = 0;
+
+        if ($setup->harvest_date) {
+            $harvestDate = \Carbon\Carbon::parse($setup->harvest_date);
+            $totalDays = $setupDate->diffInDays($harvestDate);
+            if ($totalDays > 0) {
+                $daysPassed = $setupDate->diffInDays($now);
+                $growthPercentage = min(100, round((($daysPassed / $totalDays) * 100), 0));
+            }
+        }
+
+        return [
+            'setup_id' => $setup->id,
+            'crop_name' => $setup->crop_name,
+            'growth_percentage' => $growthPercentage,
+        ];
     }
 }
