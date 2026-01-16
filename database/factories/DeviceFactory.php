@@ -3,7 +3,6 @@
 namespace Database\Factories;
 
 use App\Models\Device;
-use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -21,10 +20,11 @@ class DeviceFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id' => User::factory(),
-            'name' => fake()->words(3, true),
+            'device_name' => fake()->words(3, true),
             'serial_number' => 'SN-' . strtoupper(fake()->bothify('??-####-????')),
-            'status' => fake()->randomElement(['connected', 'not connected']),
+            'model' => fake()->words(2, true),
+            'firmware_version' => fake()->numerify('#.#.#'),
+            'status' => fake()->randomElement(['online', 'offline']),
         ];
     }
 }

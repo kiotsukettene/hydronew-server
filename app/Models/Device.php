@@ -6,17 +6,12 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Collection;
 
 class Device extends Model
 {
 	use HasFactory;
 
 	protected $table = 'devices';
-
-	protected $casts = [
-		'user_id' => 'int'
-	];
 
     protected $fillable = [
         'device_name',
