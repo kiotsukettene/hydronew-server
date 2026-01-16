@@ -9,6 +9,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class MQTTSensorDataHandlerService {
+    protected MqttService $mqttService;
+
+    public function __construct(MqttService $mqttService)
+    {
+        $this->mqttService = $mqttService;
+    }
+
     public function handlePayload(int $deviceId, array $payload): void
     {
         DB::transaction(function () use ($deviceId, $payload) {
@@ -54,8 +61,8 @@ class MQTTSensorDataHandlerService {
                 // Load the relationship for broadcasting
                 $sensorReading->load('sensorSystem');
 
-                // Schedule broadcast to run AFTER transaction commits
-                DB::afterCommit(function () use ($sensorReading, $deviceId, $systemType) {
+                // Schedule broadcast and MQTT publish to run AFTER transaction commits
+                DB::afterCommit(function () use ($sensorReading, $deviceId, $systemType, $readings) {
                     try {
                         broadcast(new SensorDataBroadcast($sensorReading, $deviceId, $systemType));
                         
@@ -67,6 +74,33 @@ class MQTTSensorDataHandlerService {
                         ]);
                     } catch (\Exception $e) {
                         Log::error('Failed to broadcast sensor data', [
+                            'device_id' => $deviceId,
+                            'system_type' => $systemType,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+
+                    // Publish to MQTT for AI classification
+                    try {
+                        $mqttPayload = [
+                            'id' => $sensorReading->id,
+                            'device_id' => $deviceId,
+                            'system_type' => $systemType,
+                            'sensor_system_id' => $sensorReading->sensor_system_id,
+                            'reading_time' => $sensorReading->reading_time->toIso8601String(),
+                            'data' => $readings,
+                        ];
+
+                        $this->mqttService->publish('hydronew/ai/classification', $mqttPayload);
+
+                        Log::info('Published sensor data to AI classification topic', [
+                            'reading_id' => $sensorReading->id,
+                            'device_id' => $deviceId,
+                            'system_type' => $systemType,
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('Failed to publish sensor data to AI classification topic', [
+                            'reading_id' => $sensorReading->id,
                             'device_id' => $deviceId,
                             'system_type' => $systemType,
                             'error' => $e->getMessage(),
