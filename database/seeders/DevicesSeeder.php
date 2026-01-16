@@ -14,13 +14,8 @@ class DevicesSeeder extends Seeder
      */
     public function run(): void
     {
-
-        $user = User::first();
-
-
         Device::firstOrCreate([
-            'user_id' => $user->id,
-            'name' => 'HydroNew Device A-1',
+            'device_name' => 'HydroNew Device A-1',
             'serial_number' => 'MFC-1204328HD0B45',
             'model' => 'HydroNew Model A',
             'firmware_version' => '1.0.0',
