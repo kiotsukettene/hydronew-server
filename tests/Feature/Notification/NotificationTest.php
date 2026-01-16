@@ -19,7 +19,8 @@ beforeEach(function () {
 
 describe('List Notifications', function () {
     it('authenticated user can view their notifications', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         Notification::factory()->count(3)->create([
             'user_id' => $this->user->id,
@@ -56,7 +57,8 @@ describe('List Notifications', function () {
     });
 
     it('time is displayed in correct format', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         $notification = Notification::factory()->create([
             'user_id' => $this->user->id,
@@ -77,7 +79,8 @@ describe('List Notifications', function () {
 
 describe('Get Unread Count', function () {
     it('unread count matches actual unread notifications', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         // Create 3 unread notifications
         Notification::factory()->count(3)->create([
@@ -115,7 +118,8 @@ describe('Get Unread Count', function () {
 
 describe('Create Notification', function () {
     it('user can create a notification successfully', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         $notificationData = [
             'device_id' => $device->id,
@@ -160,7 +164,8 @@ describe('Create Notification', function () {
     });
 
     it('notification appears in listing after creation', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         $notificationData = [
             'device_id' => $device->id,
@@ -187,7 +192,8 @@ describe('Create Notification', function () {
     });
 
     it('broadcast event is triggered', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         $notificationData = [
             'device_id' => $device->id,
@@ -207,7 +213,8 @@ describe('Create Notification', function () {
 
 describe('Mark As Read', function () {
     it('user can mark a notification as read', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         $notification = Notification::factory()->create([
             'user_id' => $this->user->id,
@@ -241,7 +248,8 @@ describe('Mark As Read', function () {
     });
 
     it('cannot mark another user\'s notification as read (authorization)', function () {
-        $device = Device::factory()->create(['user_id' => $this->otherUser->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->otherUser->id);
 
         $notification = Notification::factory()->create([
             'user_id' => $this->otherUser->id,
@@ -265,7 +273,8 @@ describe('Mark As Read', function () {
     });
 
     it('notification is updated in listing/unread count', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         $notification = Notification::factory()->create([
             'user_id' => $this->user->id,
@@ -304,7 +313,8 @@ describe('Mark As Read', function () {
 
 describe('Mark All As Read', function () {
     it('user can mark all notifications as read', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         // Create 3 unread notifications
         Notification::factory()->count(3)->create([
@@ -337,7 +347,8 @@ describe('Mark All As Read', function () {
     });
 
     it('unread count becomes zero after marking all', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         // Create 5 unread notifications
         Notification::factory()->count(5)->create([

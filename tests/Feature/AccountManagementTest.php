@@ -14,7 +14,10 @@ beforeEach(function () {
 
 describe('Manage Account', function () {
     it('authenticated user can access manage account endpoint', function () {
-        Device::factory()->count(3)->create(['user_id' => $this->user->id]);
+        $devices = Device::factory()->count(3)->create();
+        foreach ($devices as $device) {
+            $device->users()->attach($this->user->id);
+        }
 
         $response = $this->actingAs($this->user)
             ->getJson('/api/v1/manage-account');

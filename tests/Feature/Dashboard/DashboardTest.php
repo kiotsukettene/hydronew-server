@@ -15,7 +15,8 @@ beforeEach(function () {
 
 describe('Dashboard Overview', function () {
     it('authenticated user can access dashboard', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         $sensorSystem = SensorSystem::factory()->create([
             'device_id' => $device->id,
@@ -42,7 +43,8 @@ describe('Dashboard Overview', function () {
     });
 
     it('returns latest pH reading data', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         $sensorSystem = SensorSystem::factory()->create([
             'device_id' => $device->id,
@@ -79,7 +81,8 @@ describe('Dashboard Overview', function () {
     });
 
     it('returns 404 when pH sensor does not exist', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         // No sensor systems created for this device
 
@@ -94,7 +97,8 @@ describe('Dashboard Overview', function () {
     });
 
     it('returns correct pH status - Good', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         $sensorSystem = SensorSystem::factory()->create([
             'device_id' => $device->id,
@@ -122,7 +126,8 @@ describe('Dashboard Overview', function () {
     });
 
     it('returns correct pH status - Acidic', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         $sensorSystem = SensorSystem::factory()->create([
             'device_id' => $device->id,
@@ -150,7 +155,8 @@ describe('Dashboard Overview', function () {
     });
 
     it('returns correct pH status - Alkaline', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         $sensorSystem = SensorSystem::factory()->create([
             'device_id' => $device->id,
@@ -178,7 +184,8 @@ describe('Dashboard Overview', function () {
     });
 
     it('returns correct pH status - Unknown', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         $sensorSystem = SensorSystem::factory()->create([
             'device_id' => $device->id,
@@ -208,7 +215,8 @@ describe('Dashboard Overview', function () {
     });
 
     it('returns nearest to harvest setup', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         $sensorSystem = SensorSystem::factory()->create([
             'device_id' => $device->id,
@@ -257,7 +265,8 @@ describe('Dashboard Overview', function () {
     });
 
     it('returns null for nearest to harvest when no setup exists', function () {
-        $device = Device::factory()->create(['user_id' => $this->user->id]);
+        $device = Device::factory()->create();
+        $device->users()->attach($this->user->id);
 
         $sensorSystem = SensorSystem::factory()->create([
             'device_id' => $device->id,
