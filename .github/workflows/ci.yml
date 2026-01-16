@@ -9,32 +9,21 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: password
-          MYSQL_DATABASE: testing
-        ports:
-          - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, pdo_mysql, bcmath, soap, intl, gd, exif, iconv
+          extensions: pdo, pdo_sqlite, sqlite
           coverage: xdebug
 
       - name: Install Composer dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress --optimize-autoloader
+        run: composer install --prefer-dist --no-interaction --no-progress
 
-        - name: Copy .env
+      - name: Copy .env.testing
         run: |
           cp .env.testing.example .env
           php artisan key:generate
@@ -45,18 +34,15 @@ jobs:
           touch database/database.sqlite
 
       - name: Run migrations
-        run: php artisan migrate --force
+        run: php artisan migrate:fresh --env=testing --force
 
-      - name: Run Laravel Pint (Code Style)
+      - name: Run Pint
         run: vendor/bin/pint --test
 
       - name: Run tests
-        run: php artisan test --coverage --min=70
+        run: php artisan test --coverage-clover=coverage.xml --min=70
 
-      - name: Upload coverage reports
+      - name: Upload coverage
         uses: codecov/codecov-action@v4
-        if: always()
         with:
-          files: ./coverage.xml
-          fail_ci_if_error: false
-
+          files: coverage.xml
