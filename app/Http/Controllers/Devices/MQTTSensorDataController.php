@@ -136,5 +136,91 @@ class MQTTSensorDataController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Receive AI classification data from MQTT/external sources
+     * 
+     * Expected payload format:
+     * {
+     *   "device_serial_number": "BT20120",
+     *   "sensor_data": [
+     *     {
+     *       "water_type": "dirty_water",
+     *       "sensors": {"ph": 6.82, "tds": 2.41, "turbidity": 2.77, "water_level": 1.98},
+     *       "ai_classification": "bad",
+     *       "confidence": 98.78
+     *     },
+     *     {
+     *       "water_type": "clean_water",
+     *       "sensors": {"ph": 7.12, "tds": 1.85, "turbidity": 0.92, "water_level": 2.10},
+     *       "ai_classification": "good",
+     *       "confidence": 95.23
+     *     }
+     *   ]
+     * }
+     */
+    public function storeAIClassification(Request $request)
+    {
+        try {
+            // Validate the request
+            $validator = Validator::make($request->all(), [
+                'device_serial_number' => 'required|string|exists:devices,serial_number',
+                'sensor_data' => 'required|array',
+                'sensor_data.*.water_type' => 'required|string|in:clean_water,dirty_water,hydroponics_water',
+                'sensor_data.*.sensors' => 'required|array',
+                'sensor_data.*.sensors.ph' => 'nullable|numeric',
+                'sensor_data.*.sensors.tds' => 'nullable|numeric',
+                'sensor_data.*.sensors.turbidity' => 'nullable|numeric',
+                'sensor_data.*.sensors.water_level' => 'nullable|numeric',
+                'sensor_data.*.sensors.humidity' => 'nullable|numeric',
+                'sensor_data.*.sensors.temperature' => 'nullable|numeric',
+                'sensor_data.*.sensors.ec' => 'nullable|numeric',
+                'sensor_data.*.ai_classification' => 'nullable|string|in:good,bad',
+                'sensor_data.*.confidence' => 'nullable|numeric|min:0|max:100',
+            ]);
+
+            if ($validator->fails()) {
+                Log::error('AI Classification Data Validation Failed', [
+                    'errors' => $validator->errors(),
+                    'payload' => $request->all()
+                ]);
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Log incoming data
+            Log::info('AI Classification Data Received via HTTP', [
+                'serial_number' => $request->input('device_serial_number'),
+                'sensor_count' => count($request->input('sensor_data'))
+            ]);
+
+            // Process the data using the handler service
+            $this->mqttHandler->handleAIClassificationPayload($request->all());
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'AI classification data stored successfully',
+                'device_serial_number' => $request->input('device_serial_number'),
+                'systems_processed' => count($request->input('sensor_data'))
+            ], 201);
+
+        } catch (\Exception $e) {
+            Log::error('AI Classification Data Processing Error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'payload' => $request->all()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to process AI classification data',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
 
