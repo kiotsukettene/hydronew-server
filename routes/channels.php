@@ -1,9 +1,10 @@
 <?php
 
 use Illuminate\Support\Facades\Broadcast;
+use Illuminate\Support\Facades\Log;
 
 Broadcast::channel('user.{id}', function ($user, $id) {
-    \Log::info('Channel authorization attempt', [
+    Log::info('Channel authorization attempt', [
         'user_id' => $user->id,
         'requested_id' => $id, 
         'match' => (int) $user->id === (int) $id
