@@ -9,6 +9,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class MQTTSensorDataHandlerService {
+    protected NotificationService $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
+
     public function handlePayload(int $deviceId, array $payload): void
     {
         DB::transaction(function () use ($deviceId, $payload) {
@@ -54,7 +61,7 @@ class MQTTSensorDataHandlerService {
                 // Load the relationship for broadcasting
                 $sensorReading->load('sensorSystem');
 
-                // Schedule broadcast to run AFTER transaction commits
+                // Schedule broadcast and threshold checks to run AFTER transaction commits
                 DB::afterCommit(function () use ($sensorReading, $deviceId, $systemType) {
                     try {
                         broadcast(new SensorDataBroadcast($sensorReading, $deviceId, $systemType));
@@ -67,6 +74,21 @@ class MQTTSensorDataHandlerService {
                         ]);
                     } catch (\Exception $e) {
                         Log::error('Failed to broadcast sensor data', [
+                            'device_id' => $deviceId,
+                            'system_type' => $systemType,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+
+                    // Check sensor thresholds and send alerts if needed
+                    try {
+                        $this->notificationService->checkSensorThresholds(
+                            $sensorReading,
+                            $deviceId,
+                            $systemType
+                        );
+                    } catch (\Exception $e) {
+                        Log::error('Failed to check sensor thresholds', [
                             'device_id' => $deviceId,
                             'system_type' => $systemType,
                             'error' => $e->getMessage(),
