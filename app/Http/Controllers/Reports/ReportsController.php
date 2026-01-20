@@ -85,9 +85,8 @@ class ReportsController extends Controller
         $activeSetups = $setups->where('status', 'active');
 
         // Get user's hydroponics sensor system
-        $sensorSystem = SensorSystem::whereHas('device', function ($q) use ($user) {
-            $q->where('user_id', $user->id);
-        })
+        $deviceIds = $user->devices->pluck('id');
+        $sensorSystem = SensorSystem::whereIn('device_id', $deviceIds)
             ->where('system_type', 'hydroponics_water')
             ->where('is_active', true)
             ->first();
@@ -437,7 +436,7 @@ class ReportsController extends Controller
         $dateTo = $validated['date_to'] ?? Carbon::now()->toDateString();
 
         // Get user's devices
-        $deviceIds = Device::where('user_id', $user->id)->pluck('id');
+        $deviceIds = $user->devices->pluck('id');
 
         // Get sensor system
         $sensorSystem = SensorSystem::whereIn('device_id', $deviceIds)
@@ -567,7 +566,7 @@ class ReportsController extends Controller
         };
 
         // Get user's devices
-        $deviceIds = Device::where('user_id', $user->id)->pluck('id');
+        $deviceIds = $user->devices->pluck('id');
 
         // Get sensor system
         $sensorSystem = SensorSystem::whereIn('device_id', $deviceIds)
