@@ -128,7 +128,7 @@ class ReportsController extends Controller
             }
         }
 
-        // Calculate compliance percentages
+        // Calculate compliance percentage
         foreach ($parameterCompliance as $param => $data) {
             $parameterCompliance[$param]['percentage'] = $data['total'] > 0
                 ? round(($data['compliant'] / $data['total']) * 100, 2)
