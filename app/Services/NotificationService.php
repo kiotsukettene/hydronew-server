@@ -203,14 +203,6 @@ class NotificationService
                 ];
             }
         }
-
-        // TODO: Implement checking all setups in the future
-        // foreach ($setups as $setup) {
-        //     $cropName = $setup->crop_name;
-        //     $setupId = $setup->id;
-        //     // ... check pH and TDS for each setup
-        // }
-
         return $alerts;
     }
 
