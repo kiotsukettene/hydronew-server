@@ -116,7 +116,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('v1/notifications/unread-count', [NotificationController::class, 'getUnreadCount']);
     Route::post('v1/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
 
-    Route::get('v1/devices', [DeviceController::class, 'index']);
+    Route::get('v1/devices', [DeviceController::class, 'fetchDevices']);
     Route::post('v1/devices/connect', [DeviceController::class, 'connectDevice']);
     Route::post('v1/devices/{device}/disconnect', [DeviceController::class, 'disconnectDevice']);
     Route::post('v1/devices/pairing-token', [DeviceController::class, 'pairingToken']);
