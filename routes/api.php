@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\FirebaseController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Dashboard\DashboardController;
+use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\HelpCenter\HelpCenterController;
 use App\Http\Controllers\WaterQuality\WaterMonitoringController;
 use App\Http\Controllers\Notification\NotificationController;
@@ -141,6 +142,10 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::post('v1/hydroponic-yields/{setup}/store', [HydroponicYieldController::class, 'storeYield']);
 
     Route::get('v1/tips-suggestion', [TipsController::class, 'generateTips']);
+
+    // Feedback endpoints
+    Route::post('v1/feedback', [FeedbackController::class, 'store']);
+    Route::get('v1/feedback', [FeedbackController::class, 'index']);
 
     // Reports and Analytics endpoints
     Route::prefix('v1/reports')->group(function () {
