@@ -20,7 +20,6 @@ class FeedbackController extends Controller
         $deviceId = $request->input('device_id'); // Optional filter
 
         $query = Feedback::where('user_id', $user->id)
-            ->with('device:id,device_name,serial_number')
             ->orderBy('created_at', 'desc');
 
         // Apply device filter if provided
