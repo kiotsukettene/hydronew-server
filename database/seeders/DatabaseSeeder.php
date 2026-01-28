@@ -11,6 +11,7 @@ use Database\Seeders\NotificationSeeder;
 use Database\Seeders\SensorReadingsSeeder;
 use Database\Seeders\HydroponicSetupSeeder;
 use Database\Seeders\HydroponicYieldSeeder;
+use Database\Seeders\HydroponicYieldGradeSeeder;
 use Database\Seeders\TipsSuggestionsSeeder;
 use Database\Seeders\TreatmentStagesSeeder;
 use Database\Seeders\TreatmentReportsSeeder;
@@ -35,6 +36,7 @@ class DatabaseSeeder extends Seeder
             TreatmentStagesSeeder::class,
             HydroponicSetupSeeder::class,
             HydroponicYieldSeeder::class,
+            HydroponicYieldGradeSeeder::class,
             TipsSuggestionsSeeder::class,
             NotificationSeeder::class,
             HelpCenterSeeder::class,
