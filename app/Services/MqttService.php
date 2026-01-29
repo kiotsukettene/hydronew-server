@@ -15,11 +15,21 @@ class MqttService
         $connectionName = config('mqtt-client.default_connection');
         $config = config("mqtt-client.connections.$connectionName");
 
-        $clientId = $config['client_id'] ?? 'laravel_' . uniqid();
+        $host = $config['host'] ?? null;
+        $port = $config['port'] ?? null;
 
-        $this->client = new MqttClient(
-            $config['host'],
-            $config['port'],
+        // If config isn't available (common during CI/composer scripts), don't hard-crash.
+        if (!is_string($host) || $host === '' || !is_numeric($port)) {
+            throw new \RuntimeException(
+                'MQTT is not configured. Check config(mqtt-client.*) and ensure host/port are set.'
+            );
+        }
+
+        $clientId = $config['client_id'] ?? ('laravel_' . uniqid());
+
+        return new MqttClient(
+            $host,
+            (int) $port,
             $clientId,
             MqttClient::MQTT_3_1
         );
