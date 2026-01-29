@@ -22,6 +22,7 @@ class StoreHydroponicsRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'device_id' => 'required|integer|exists:devices,id',
             'crop_name' => 'required|string|max:255',
             'number_of_crops' => 'required|integer|min:1',
             'bed_size' => 'required|in:small,medium,large,custom',

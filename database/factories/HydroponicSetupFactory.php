@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Device;
 use App\Models\HydroponicSetup;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -22,6 +23,7 @@ class HydroponicSetupFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
+            'device_id' => Device::factory(),
             'crop_name' => fake()->randomElement(['Lettuce', 'Tomato', 'Cucumber', 'Spinach', 'Basil', 'Strawberry']),
             'number_of_crops' => fake()->numberBetween(10, 100),
             'bed_size' => fake()->randomElement(['small', 'medium', 'large', 'custom']),
