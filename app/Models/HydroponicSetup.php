@@ -47,6 +47,7 @@ class HydroponicSetup extends Model
 
     protected $fillable = [
         'user_id',
+        'device_id',
         'crop_name',
         'number_of_crops',
         'bed_size',
@@ -74,6 +75,11 @@ class HydroponicSetup extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function device()
+    {
+        return $this->belongsTo(Device::class);
     }
 
     

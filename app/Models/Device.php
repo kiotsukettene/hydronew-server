@@ -59,4 +59,9 @@ class Device extends Model
     {
         return $this->hasMany(Feedback::class);
     }
+
+    public function hydroponic_setups()
+    {
+        return $this->hasMany(HydroponicSetup::class);
+    }
 }

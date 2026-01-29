@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Device;
 use App\Models\HydroponicSetup;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -15,8 +16,9 @@ class HydroponicSetupSeeder extends Seeder
     public function run(): void
     {
         $user = User::first();
+        $device = Device::first();
 
-        if (!$user) {
+        if (!$user || !$device) {
             return; // Safety check
         }
 
@@ -188,6 +190,7 @@ class HydroponicSetupSeeder extends Seeder
         foreach ($setups as $setup) {
             HydroponicSetup::create(array_merge($setup, [
                 'user_id' => $user->id,
+                'device_id' => $device->id,
                 'harvest_status' => $setup['harvest_status'] ?? 'not_harvested',
                 'health_status' => $setup['health_status'] ?? 'good',
                 'status' => $setup['status'] ?? 'active',

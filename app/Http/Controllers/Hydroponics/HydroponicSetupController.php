@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Hydroponics;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Hydroponics\StoreHydroponicsRequest;
+use App\Models\Device;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
 use App\Models\HydroponicYieldGrade;
@@ -122,9 +123,14 @@ class HydroponicSetupController extends Controller
 
     public function store(StoreHydroponicsRequest $request)
     {
+        $user = Auth::user();
+        $device = $user->devices()->where('devices.is_archived', false)->first();
+
+
         $validated = $request->validated();
 
         $validated['user_id'] = Auth::id();
+        $validated['device_id'] = $device->id;
         $validated['status'] = 'active';
         $validated['setup_date'] = now();
         $validated['harvest_status'] = 'not_harvested';
@@ -174,6 +180,7 @@ class HydroponicSetupController extends Controller
 
         // Prevent changing certain fields
         unset($validated['user_id']);
+        unset($validated['device_id']); // Device cannot be changed after creation
         unset($validated['setup_date']);
         unset($validated['harvest_status']);
         unset($validated['status']);

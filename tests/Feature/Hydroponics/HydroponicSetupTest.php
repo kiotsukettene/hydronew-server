@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Device;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
 use App\Models\HydroponicYieldGrade;
@@ -12,6 +13,11 @@ beforeEach(function () {
     ]);
 
     $this->otherUser = User::factory()->create();
+    
+    $this->device = Device::factory()->create();
+    
+    // Attach the device to the user (many-to-many relationship)
+    $this->user->devices()->attach($this->device->id);
 });
 
 describe('List Hydroponic Setups', function () {
