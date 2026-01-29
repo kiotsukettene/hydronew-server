@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('hydroponic_setup', function (Blueprint $table) {
-            $table->bigInteger('device_id')->after('user_id')->nullable();
+            $table->bigInteger('device_id')->after('user_id');
             $table->foreign('device_id')->references('id')->on('devices')->onDelete('cascade');
         });
     }
