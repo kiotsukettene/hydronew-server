@@ -12,23 +12,40 @@ use App\Models\Notification;
 
 class NotificationController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
-        $notifications = Notification::where('user_id', $user->id)->get()->map(function ($n) {
-            return [
-                'id' => $n->id,
-                'user_id' => $n->user_id,
-                'device_id' => $n->device_id,
-                'title' => $n->title,
-                'message' => $n->message,
-                'type' => $n->type,
-                'is_read' => $n->is_read,
-                'created_at' => $n->created_at,
-                'time' => date('h:i A', strtotime($n->created_at)),
-            ];
-        });
-        return response()->json(['data' => $notifications]);
+        $limit = $request->input('limit', 20);
+        $offset = $request->input('offset', 0);
+        
+        $notifications = Notification::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->skip($offset)
+            ->take($limit)
+            ->get()
+            ->map(function ($n) {
+                return [
+                    'id' => $n->id,
+                    'user_id' => $n->user_id,
+                    'device_id' => $n->device_id,
+                    'title' => $n->title,
+                    'message' => $n->message,
+                    'type' => $n->type,
+                    'is_read' => $n->is_read,
+                    'created_at' => $n->created_at,
+                    'time' => date('h:i A', strtotime($n->created_at)),
+                ];
+            });
+        
+        $total = Notification::where('user_id', $user->id)->count();
+        
+        return response()->json([
+            'data' => $notifications,
+            'has_more' => ($offset + $limit) < $total,
+            'total' => $total,
+            'offset' => $offset,
+            'limit' => $limit,
+        ]);
     }
 
     public function getUnreadCount()

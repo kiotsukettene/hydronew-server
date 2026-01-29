@@ -54,4 +54,9 @@ class Device extends Model
     {
         return $this->hasMany(TreatmentReport::class);
     }
+
+    public function feedback()
+    {
+        return $this->hasMany(Feedback::class);
+    }
 }

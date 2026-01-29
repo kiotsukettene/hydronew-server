@@ -7,11 +7,19 @@ use App\Http\Requests\Hydroponics\StoreHydroponicsRequest;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
 use App\Models\HydroponicYieldGrade;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
 class HydroponicSetupController extends Controller
 {
+    protected NotificationService $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
+
     public function index()
     {
 
@@ -52,9 +60,13 @@ class HydroponicSetupController extends Controller
             // Calculate growth_stage based on plant age and harvest date
             $growthStage = $this->calculateGrowthStage($plantAge, $setup->harvest_date, $now);
             
-            // Update growth_stage in database if it changed
-            if ($setup->growth_stage !== $growthStage && $setup->harvest_status !== 'harvested') {
+            // Update growth_stage in database if it changed and send notification
+            $oldStage = $setup->growth_stage;
+            if ($oldStage !== $growthStage && $setup->harvest_status !== 'harvested') {
                 $setup->update(['growth_stage' => $growthStage]);
+                
+                // Send growth stage change notification
+                $this->notificationService->notifyGrowthStageChange($setup, $oldStage, $growthStage);
             }
 
             $setup->plant_age = $plantAge;
@@ -88,10 +100,14 @@ class HydroponicSetupController extends Controller
         // Calculate growth_stage based on plant age and harvest date
         $growthStage = $this->calculateGrowthStage($plantAge, $setup->harvest_date, $now);
         
-        // Update growth_stage in database if it changed
-        if ($setup->growth_stage !== $growthStage && $setup->harvest_status !== 'harvested') {
+        // Update growth_stage in database if it changed and send notification
+        $oldStage = $setup->growth_stage;
+        if ($oldStage !== $growthStage && $setup->harvest_status !== 'harvested') {
             $setup->update(['growth_stage' => $growthStage]);
             $setup->growth_stage = $growthStage;
+            
+            // Send growth stage change notification
+            $this->notificationService->notifyGrowthStageChange($setup, $oldStage, $growthStage);
         }
 
         return response()->json([
@@ -176,11 +192,15 @@ class HydroponicSetupController extends Controller
             $daysLeft = max(0, (int) $now->diffInDays($harvestDate, false));
         }
 
-        // Recalculate growth_stage after update
+        // Recalculate growth_stage after update and send notification if changed
         $growthStage = $this->calculateGrowthStage($plantAge, $setup->harvest_date, $now);
-        if ($setup->growth_stage !== $growthStage) {
+        $oldStage = $setup->growth_stage;
+        if ($oldStage !== $growthStage) {
             $setup->update(['growth_stage' => $growthStage]);
             $setup->growth_stage = $growthStage;
+            
+            // Send growth stage change notification
+            $this->notificationService->notifyGrowthStageChange($setup, $oldStage, $growthStage);
         }
 
         return response()->json([

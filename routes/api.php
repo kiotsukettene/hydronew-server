@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\FirebaseController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Dashboard\DashboardController;
+use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\HelpCenter\HelpCenterController;
 use App\Http\Controllers\WaterQuality\WaterMonitoringController;
 use App\Http\Controllers\Notification\NotificationController;
@@ -33,7 +34,7 @@ Route::post('v1/verify-reset-code', [PasswordResetController::class, 'verifyRese
 Route::post('v1/resend-reset-code', [PasswordResetController::class, 'resendResetCode']);
 Route::post('v1/reset-password', [PasswordResetController::class, 'resetPassword']);
 
-Route::get('v1/help-center', [HelpCenterController::class, 'index']);
+
 
 Route::post('v1/google-login', [FirebaseController::class, 'signInWithGoogleAuth']);
 
@@ -116,7 +117,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('v1/notifications/unread-count', [NotificationController::class, 'getUnreadCount']);
     Route::post('v1/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
 
-    Route::get('v1/devices', [DeviceController::class, 'index']);
+    Route::get('v1/devices', [DeviceController::class, 'fetchDevices']);
     Route::post('v1/devices/connect', [DeviceController::class, 'connectDevice']);
     Route::post('v1/devices/{device}/disconnect', [DeviceController::class, 'disconnectDevice']);
     Route::post('v1/devices/pairing-token', [DeviceController::class, 'pairingToken']);
@@ -141,6 +142,12 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::post('v1/hydroponic-yields/{setup}/store', [HydroponicYieldController::class, 'storeYield']);
 
     Route::get('v1/tips-suggestion', [TipsController::class, 'generateTips']);
+
+    Route::get('v1/help-center', [HelpCenterController::class, 'index']);
+
+    // Feedback endpoints
+    Route::post('v1/feedback', [FeedbackController::class, 'store']);
+    Route::get('v1/feedback', [FeedbackController::class, 'index']);
 
     // Reports and Analytics endpoints
     Route::prefix('v1/reports')->group(function () {
