@@ -246,6 +246,21 @@ public function handleAIClassificationPayload(array $payload): void
                         'error' => $e->getMessage(),
                     ]);
                 }
+
+                // Check sensor thresholds and send alerts if needed
+                try {
+                    $this->notificationService->checkSensorThresholds(
+                        $sensorReading,
+                        $device->id,
+                        $waterType
+                    );
+                } catch (\Exception $e) {
+                    Log::error('Failed to check sensor thresholds', [
+                        'device_id' => $device->id,
+                        'system_type' => $waterType,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             });
         } // ← End of foreach loop - afterCommit must be BEFORE this
     }); // ← End of DB::transaction
