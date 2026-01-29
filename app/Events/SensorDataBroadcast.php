@@ -68,6 +68,7 @@ class SensorDataBroadcast implements ShouldBroadcastNow
                 'temperature' => $this->sensorReading->temperature,
                 'ec' => $this->sensorReading->ec,
                 'electric_current' => $this->sensorReading->electric_current,
+                'ai_classification' => $this->sensorReading->ai_classification,
             ],
             'reading_time' => $this->sensorReading->reading_time?->toIso8601String(),
             'timestamp' => now()->timestamp,

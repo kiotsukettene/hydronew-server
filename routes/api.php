@@ -17,6 +17,7 @@ use App\Http\Controllers\Devices\MQTTSensorDataController;
 use App\Http\Controllers\Hydroponics\HydroponicSetupController;
 use App\Http\Controllers\Hydroponics\HydroponicYieldController;
 use App\Http\Controllers\TipsSuggestions\TipsController;
+use App\Http\Controllers\Treatment\TreatmentController;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
 use Illuminate\Support\Facades\Broadcast;
@@ -149,6 +150,8 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::post('v1/feedback', [FeedbackController::class, 'store']);
     Route::get('v1/feedback', [FeedbackController::class, 'index']);
 
+    Route::post('v1/treatment', [TreatmentController::class, 'saveTreatment']);
+    Route::put('v1/treatment/update-treatment', [TreatmentController::class, 'updateTreatment']);
     // Reports and Analytics endpoints
     Route::prefix('v1/reports')->group(function () {
         // Crop analytics
