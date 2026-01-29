@@ -15,11 +15,11 @@ class DevicesSeeder extends Seeder
     public function run(): void
     {
         Device::firstOrCreate([
-            'device_name' => 'HydroNew Device A-1',
-            'serial_number' => 'MFC-1204328HD0B45',
-            'model' => 'HydroNew Model A',
-            'firmware_version' => '1.0.0',
-            'status' => 'offline',
+            'device_name' => 'Biotech01',
+            'serial_number' => 'BT-2025-0001',
+            'model' => 'Raspbery Pi 5',
+            'firmware_version' => '094/11/7',
+            'status' => 'online',
         ]);
     }
 }
