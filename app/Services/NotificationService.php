@@ -215,13 +215,14 @@ class NotificationService
         string $newStage
     ): void {
         $userId = $setup->user_id;
+        $deviceId = $setup->device_id;
         $cropName = $setup->crop_name;
 
         // Determine notification type and message based on new stage
         if ($newStage === 'harvest-ready') {
             $this->createAndBroadcast(
                 $userId,
-                null,
+                $deviceId,
                 'Ready to Harvest',
                 "Your {$cropName} is ready to harvest!",
                 'success' // Harvest ready is good news
@@ -229,7 +230,7 @@ class NotificationService
         } elseif ($newStage === 'overgrown') {
             $this->createAndBroadcast(
                 $userId,
-                null,
+                $deviceId,
                 'Overgrown Warning',
                 "Your {$cropName} is overgrown. Harvest immediately!",
                 'warning' // Overgrown needs attention
@@ -246,7 +247,7 @@ class NotificationService
 
             $this->createAndBroadcast(
                 $userId,
-                null,
+                $deviceId,
                 'Growth Update',
                 "Your {$cropName} has entered the {$stageName} stage",
                 'info' // Growth updates are informational
