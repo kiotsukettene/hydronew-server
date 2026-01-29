@@ -59,6 +59,7 @@ class HydroponicYieldController extends Controller
                 'setup_date' => $setup->setup_date,
                 'harvest_date' => $setup->harvest_date,
                 'duration_days' => $duration,
+                'status' => $setup->status,
                 'yield' => $yield ? [
                     'id' => $yield->id,
                     'total_count' => $yield->total_count,
@@ -146,12 +147,13 @@ class HydroponicYieldController extends Controller
                 'id' => $yield->id,
                 'crop_name' => $setup->crop_name,
                 'setup_date' => $setup->setup_date,
-                'harvest_date' => $yield->harvest_date,
+                'harvest_date' => $setup->harvest_date,
                 'plant_age' => $plantAge,
                 'days_left' => $daysLeft,
-                'growth_stage' => $yield->growth_stage,
-                'health_status' => $yield->health_status,
-                'harvest_status' => $yield->harvest_status,
+                'status' => $setup->status,
+                'growth_stage' => $setup->growth_stage,
+                'health_status' => $setup->health_status,
+                'harvest_status' => $setup->harvest_status,
             ];
         });
 

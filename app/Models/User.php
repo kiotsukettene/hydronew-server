@@ -73,7 +73,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function devices()
     {
-        return $this->hasMany(Device::class);
+        return $this->belongsToMany(Device::class, 'device_users', 'user_id', 'device_id');
     }
 
     public function notifications()
@@ -89,5 +89,10 @@ class User extends Authenticatable implements MustVerifyEmail
     public function loginHistories()
     {
         return $this->hasMany(LoginHistory::class);
+    }
+
+    public function feedback()
+    {
+        return $this->hasMany(Feedback::class);
     }
 }

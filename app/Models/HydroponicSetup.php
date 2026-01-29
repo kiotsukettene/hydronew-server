@@ -8,6 +8,7 @@ namespace App\Models;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -26,6 +27,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class HydroponicSetup extends Model
 {
+    use HasFactory;
+
     protected $table = 'hydroponic_setup';
     public $timestamps = false;
 
@@ -44,6 +47,7 @@ class HydroponicSetup extends Model
 
     protected $fillable = [
         'user_id',
+        'device_id',
         'crop_name',
         'number_of_crops',
         'bed_size',
@@ -58,6 +62,8 @@ class HydroponicSetup extends Model
         'harvest_date',
         'harvest_status',
         'status',
+        'growth_stage',
+        'health_status',
         'is_archived',
     ];
 
@@ -71,9 +77,9 @@ class HydroponicSetup extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function logs()
+    public function device()
     {
-        return $this->hasMany(HydroponicSetupLog::class, 'hydroponic_setup_id');
+        return $this->belongsTo(Device::class);
     }
 
     

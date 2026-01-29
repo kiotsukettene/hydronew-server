@@ -7,6 +7,7 @@
 namespace App\Models;
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -23,23 +24,41 @@ use Illuminate\Database\Eloquent\Model;
  */
 class SensorReading extends Model
 {
-    protected $table = 'sensor_readings';
+    use HasFactory;
+
     public $timestamps = false;
 
-    protected $casts = [
-        'sensor_id' => 'int',
-        'reading_value' => 'float',
-        'reading_time' => 'datetime'
-    ];
-
     protected $fillable = [
-        'sensor_id',
-        'reading_value',
+        'sensor_system_id',
+        'ph',
+        'tds',
+        'turbidity',
+        'water_level',
+        'humidity',
+        'temperature',
+        'ec',
+        'electric_current',
+        'ai_classification',
+        'confidence',
         'reading_time'
     ];
 
-    public function sensor()
+    protected $casts = [
+        'ph' => 'decimal:2',
+        'tds' => 'decimal:2',
+        'turbidity' => 'decimal:2',
+        'water_level' => 'decimal:2',
+        'humidity' => 'decimal:2',
+        'temperature' => 'decimal:2',
+        'ec' => 'decimal:2',
+        'electric_current' => 'decimal:2',
+        'ai_classification' => 'string',
+        'confidence' => 'decimal:2',
+        'reading_time' => 'datetime',
+    ];
+
+    public function sensorSystem()
     {
-        return $this->belongsTo(Sensor::class, 'sensor_id', 'id');
+        return $this->belongsTo(SensorSystem::class);
     }
 }
