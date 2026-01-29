@@ -116,7 +116,25 @@ public function provision(Request $request)
 }
 
 
+public function fetchDevices(Request $request)
+{
 
+    $user = $request->user();
 
+    $devices = $user->devices()->get([
+        'devices.id',
+        'devices.device_name',
+        'devices.serial_number',
+        'devices.model',
+        'devices.firmware_version',
+        'devices.status',
+        'devices.updated_at',
+    ]);
 
+    return response()->json([
+        'status' => 'success',
+        'devices' => $devices,
+    ], 200);
+
+}
 }

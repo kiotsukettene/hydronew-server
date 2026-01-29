@@ -55,9 +55,7 @@ class MqttListen extends Command
 
             // Subscribe to sensor topics
             $topics = [
-                "sensors/{$deviceId}/clean_water",
-                "sensors/{$deviceId}/dirty_water",
-                "sensors/{$deviceId}/hydroponics_water",
+                "hydronew/ai-classification/backend",
             ];
 
             foreach ($topics as $topic) {
@@ -95,12 +93,7 @@ class MqttListen extends Command
     protected function handleMessage(string $topic, string $message, int $deviceId): void
     {
         try {
-            // Extract system type from topic
-            // Assuming topic format: sensors/{deviceId}/{system_type}
-            $topicParts = explode('/', $topic);
-            $systemType = end($topicParts);
-
-            $this->line("[{$systemType}] Received: {$message}");
+            $this->line("[{$topic}] Received: " . substr($message, 0, 200) . "...");
 
             // Decode JSON payload
             $data = json_decode($message, true);
@@ -115,14 +108,11 @@ class MqttListen extends Command
                 return;
             }
 
-            // Prepare payload in the format expected by handler
-            // Format: ['system_type' => ['sensor_key' => value, ...]]
-            $payload = [$systemType => $data];
+            // Check if this is AI classification topic
+                $this->sensorHandler->handleAIClassificationPayload($data);
+                $this->info("✓ Processed AI classification data");
 
-            // Save to database
-            $this->sensorHandler->handlePayload($deviceId, $payload);
 
-            $this->info("✓ Saved readings for {$systemType}");
             $this->newLine();
 
         } catch (\Exception $e) {

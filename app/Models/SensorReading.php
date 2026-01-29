@@ -38,6 +38,8 @@ class SensorReading extends Model
         'temperature',
         'ec',
         'electric_current',
+        'ai_classification',
+        'confidence',
         'reading_time'
     ];
 
@@ -50,6 +52,8 @@ class SensorReading extends Model
         'temperature' => 'decimal:2',
         'ec' => 'decimal:2',
         'electric_current' => 'decimal:2',
+        'ai_classification' => 'string',
+        'confidence' => 'decimal:2',
         'reading_time' => 'datetime',
     ];
 

@@ -48,6 +48,8 @@ class SensorReadingsSeeder extends Seeder
                     ? 1.90
                     : null,
                 'electric_current' => null,
+                'ai_classification' => null,
+                'confidence' => null,
                 'reading_time' => Carbon::now(),
             ]);
         }
