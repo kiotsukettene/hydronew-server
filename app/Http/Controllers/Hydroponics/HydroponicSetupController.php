@@ -174,6 +174,7 @@ class HydroponicSetupController extends Controller
 
         // Prevent changing certain fields
         unset($validated['user_id']);
+        unset($validated['device_id']); // Device cannot be changed after creation
         unset($validated['setup_date']);
         unset($validated['harvest_status']);
         unset($validated['status']);
