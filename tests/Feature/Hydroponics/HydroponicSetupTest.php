@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Device;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
 use App\Models\HydroponicYieldGrade;
@@ -12,6 +13,8 @@ beforeEach(function () {
     ]);
 
     $this->otherUser = User::factory()->create();
+    
+    $this->device = Device::factory()->create();
 });
 
 describe('List Hydroponic Setups', function () {
@@ -191,6 +194,7 @@ describe('Show Hydroponic Setup', function () {
 describe('Store Hydroponic Setup', function () {
     it('user can create a new hydroponic setup', function () {
         $setupData = [
+            'device_id' => $this->device->id,
             'crop_name' => 'Lettuce',
             'number_of_crops' => 50,
             'bed_size' => 'medium',
@@ -236,6 +240,7 @@ describe('Store Hydroponic Setup', function () {
     it('response includes plant_age and days_left', function () {
         $harvestDate = now()->addDays(30);
         $setupData = [
+            'device_id' => $this->device->id,
             'crop_name' => 'Tomato',
             'number_of_crops' => 30,
             'bed_size' => 'large',
