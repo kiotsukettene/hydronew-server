@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Reports\CropComparisonRequest;
 use App\Http\Requests\Reports\CropPerformanceRequest;
 use App\Http\Requests\Reports\TreatmentReportRequest;
+use App\Http\Requests\Reports\WaterComparisonRequest;
 use App\Http\Requests\Reports\WaterQualityRequest;
 use App\Models\Device;
 use App\Models\HydroponicSetup;
@@ -299,124 +300,6 @@ class ReportsController extends Controller
                     'to' => $validated['date_to'] ?? null,
                 ],
                 'filters_applied' => $validated,
-                'generated_at' => Carbon::now()->toIso8601String(),
-            ],
-        ]);
-    }
-
-    /**
-     * Get crop comparison report
-     */
-    public function cropComparison(CropComparisonRequest $request): JsonResponse
-    {
-        $user = $request->user();
-        $validated = $request->validated();
-
-        $cropNames = $validated['crop_names'];
-        $metric = $validated['metric'] ?? 'weight';
-
-        $comparisons = [];
-
-        foreach ($cropNames as $cropName) {
-            $setups = HydroponicSetup::where('user_id', $user->id)
-                ->where('crop_name', $cropName)
-                ->where('harvest_status', 'harvested')
-                ->with(['hydroponic_yields.grades'])
-                ->get();
-
-            if ($setups->isEmpty()) {
-                $comparisons[$cropName] = [
-                    'total_setups' => 0,
-                    'harvested_setups' => 0,
-                    'success_rate' => 0,
-                    'average_weight' => 0,
-                    'average_duration' => 0,
-                    'yield_efficiency' => 0,
-                    'quality_distribution' => null,
-                ];
-                continue;
-            }
-
-            // Calculate metrics
-            $totalWeight = $setups->sum(function ($setup) {
-                return $setup->hydroponic_yields->first()->total_weight ?? 0;
-            });
-
-            $totalDuration = 0;
-            $setupsWithDuration = 0;
-
-            foreach ($setups as $setup) {
-                if ($setup->setup_date && $setup->harvest_date) {
-                    $duration = Carbon::parse($setup->setup_date)->diffInDays(Carbon::parse($setup->harvest_date));
-                    $totalDuration += $duration;
-                    $setupsWithDuration++;
-                }
-            }
-
-            $averageDuration = $setupsWithDuration > 0 ? $totalDuration / $setupsWithDuration : 0;
-            $averageWeight = $setups->count() > 0 ? $totalWeight / $setups->count() : 0;
-            $yieldEfficiency = $averageDuration > 0 ? $averageWeight / $averageDuration : 0;
-
-            // Calculate grade distribution
-            $yields = $setups->flatMap(function ($setup) {
-                return $setup->hydroponic_yields;
-            });
-            $gradeDistribution = $this->analyticsService->calculateGradeDistribution($yields);
-
-            // Calculate success rate (total setups vs harvested)
-            $totalSetupsForCrop = HydroponicSetup::where('user_id', $user->id)
-                ->where('crop_name', $cropName)
-                ->count();
-
-            $successRate = $totalSetupsForCrop > 0
-                ? round(($setups->count() / $totalSetupsForCrop) * 100, 2)
-                : 0;
-
-            $comparisons[$cropName] = [
-                'total_setups' => $totalSetupsForCrop,
-                'harvested_setups' => $setups->count(),
-                'success_rate' => $successRate,
-                'average_weight' => round($averageWeight, 2),
-                'average_duration' => round($averageDuration, 2),
-                'yield_efficiency' => round($yieldEfficiency, 2),
-                'quality_distribution' => [
-                    'selling_percentage' => $gradeDistribution['selling']['percentage'],
-                    'consumption_percentage' => $gradeDistribution['consumption']['percentage'],
-                    'disposal_percentage' => $gradeDistribution['disposal']['percentage'],
-                ],
-            ];
-        }
-
-        // Determine best performing crop based on metric
-        $bestCrop = null;
-        $bestValue = 0;
-
-        foreach ($comparisons as $cropName => $data) {
-            $value = match ($metric) {
-                'weight' => $data['average_weight'],
-                'duration' => -$data['average_duration'], // Lower is better, so negate
-                'quality' => $data['quality_distribution']['selling_percentage'] ?? 0,
-                default => $data['average_weight'],
-            };
-
-            if ($value > $bestValue) {
-                $bestValue = $value;
-                $bestCrop = $cropName;
-            }
-        }
-
-        return response()->json([
-            'status' => 'success',
-            'data' => [
-                'comparisons' => $comparisons,
-                'best_performing_crop' => [
-                    'crop_name' => $bestCrop,
-                    'metric' => $metric,
-                ],
-            ],
-            'meta' => [
-                'crops_compared' => count($cropNames),
-                'metric_used' => $metric,
                 'generated_at' => Carbon::now()->toIso8601String(),
             ],
         ]);
@@ -1064,6 +947,90 @@ class ReportsController extends Controller
                 'device_id' => $deviceId,
                 'days' => $days,
                 'total_cycles' => $reports->count(),
+                'generated_at' => Carbon::now()->toIso8601String(),
+            ],
+        ]);
+    }
+
+    /**
+     * Get water comparison report (dirty vs clean water)
+     */
+    public function waterComparison(WaterComparisonRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $validated = $request->validated();
+
+        $days = $validated['days'] ?? 7;
+        $dateFrom = Carbon::now()->subDays($days)->startOfDay();
+
+        // Get device ID - either from request or user's first device
+        $deviceId = $validated['device_id'] ?? $user->devices->first()?->id;
+
+        if (!$deviceId) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No device found for the user.',
+            ], 404);
+        }
+
+        // Get dirty water sensor system
+        $dirtyWaterSystem = SensorSystem::where('device_id', $deviceId)
+            ->where('system_type', 'dirty_water')
+            ->where('is_active', true)
+            ->first();
+
+        // Get clean water sensor system
+        $cleanWaterSystem = SensorSystem::where('device_id', $deviceId)
+            ->where('system_type', 'clean_water')
+            ->where('is_active', true)
+            ->first();
+
+        if (!$dirtyWaterSystem || !$cleanWaterSystem) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Both dirty_water and clean_water sensor systems are required for comparison.',
+            ], 404);
+        }
+
+        // Get readings for dirty water system
+        $dirtyWaterReadings = SensorReading::where('sensor_system_id', $dirtyWaterSystem->id)
+            ->where('reading_time', '>=', $dateFrom)
+            ->whereNotNull('ph')
+            ->whereNotNull('tds')
+            ->whereNotNull('turbidity')
+            ->get();
+
+        // Get readings for clean water system
+        $cleanWaterReadings = SensorReading::where('sensor_system_id', $cleanWaterSystem->id)
+            ->where('reading_time', '>=', $dateFrom)
+            ->whereNotNull('ph')
+            ->whereNotNull('tds')
+            ->whereNotNull('turbidity')
+            ->get();
+
+        if ($dirtyWaterReadings->isEmpty() || $cleanWaterReadings->isEmpty()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Insufficient data for comparison. Both systems need readings with pH, TDS, and turbidity values.',
+            ], 404);
+        }
+
+        // Calculate comparison metrics
+        $comparison = $this->analyticsService->calculateWaterSystemComparison(
+            $dirtyWaterReadings,
+            $cleanWaterReadings
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $comparison,
+            'meta' => [
+                'device_id' => $deviceId,
+                'days_analyzed' => $days,
+                'readings_count' => [
+                    'dirty_water' => $dirtyWaterReadings->count(),
+                    'clean_water' => $cleanWaterReadings->count(),
+                ],
                 'generated_at' => Carbon::now()->toIso8601String(),
             ],
         ]);
