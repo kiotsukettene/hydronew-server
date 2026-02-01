@@ -281,4 +281,100 @@ class TreatmentController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Update treatment stage status by stage_order (e.g. MFC=1 → processing → passed/failed)
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateTreatmentStage(Request $request)
+    {
+        $user = $request->user();
+        $device = $user->devices()->first();
+
+        if (!$device) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No device connected to this user'
+            ], 404);
+        }
+
+        // Find the current/ongoing treatment report (pending status)
+        $treatmentReport = TreatmentReport::where('device_id', $device->id)
+            ->where('final_status', 'pending')
+            ->latest('start_time')
+            ->first();
+
+        if (!$treatmentReport) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No active treatment in progress found'
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'stage_order' => 'required|integer|min:1',
+            'status' => 'required|string|in:pending,processing,passed,failed',
+            'ph' => 'nullable|numeric',
+            'tds' => 'nullable|numeric',
+            'turbidity' => 'nullable|numeric',
+            'notes' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $treatmentStage = TreatmentStage::where('treatment_id', $treatmentReport->id)
+            ->where('stage_order', $request->stage_order)
+            ->first();
+
+        if (!$treatmentStage) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Treatment stage not found for stage order ' . $request->stage_order
+            ], 404);
+        }
+
+        try {
+            $updateData = ['status' => $request->status];
+            if ($request->has('ph')) {
+                $updateData['pH'] = $request->ph;
+            }
+            if ($request->has('tds')) {
+                $updateData['TDS'] = $request->tds;
+            }
+            if ($request->has('turbidity')) {
+                $updateData['turbidity'] = $request->turbidity;
+            }
+            if ($request->has('notes')) {
+                $updateData['notes'] = $request->notes;
+            }
+
+            $treatmentStage->update($updateData);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Treatment stage updated successfully',
+                'data' => $treatmentStage->fresh()
+            ], 200);
+        } catch (\Exception $e) {
+            \Log::error('updateTreatmentStage: Failed to update treatment stage', [
+                'user_id' => $user->id,
+                'stage_order' => $request->stage_order,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update treatment stage',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
