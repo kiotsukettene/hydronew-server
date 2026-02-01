@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Treatment;
 
 use App\Http\Controllers\Controller;
 use App\Models\TreatmentReport;
+use App\Models\TreatmentStage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -190,6 +191,92 @@ class TreatmentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update treatment report',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Save treatment stage for the current/ongoing treatment report
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function saveTreatmentStage(Request $request)
+    {
+        \Log::info('saveTreatmentStage called', [
+            'user_id' => $request->user()->id ?? null,
+            'request_data' => $request->all()
+        ]);
+
+        $user = $request->user();
+        $device = $user->devices()->first();
+
+        if (!$device) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No device connected to this user'
+            ], 404);
+        }
+
+        // Find the current/ongoing treatment report (pending status)
+        $treatmentReport = TreatmentReport::where('device_id', $device->id)
+            ->where('final_status', 'pending')
+            ->latest('start_time')
+            ->first();
+
+        if (!$treatmentReport) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No active treatment in progress found'
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'stage_name' => 'required|string|in:MFC,Natural Filter,UV Filter,Clean Water Tank',
+            'stage_order' => 'required|integer|min:0',
+            'status' => 'required|string|in:pending,processing,passed,failed',
+            'ph' => 'nullable|numeric',
+            'tds' => 'nullable|numeric',
+            'turbidity' => 'nullable|numeric',
+            'notes' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $treatmentStage = TreatmentStage::create([
+                'treatment_id' => $treatmentReport->id,
+                'stage_name' => $request->stage_name,
+                'stage_order' => $request->stage_order,
+                'status' => $request->status,
+                'pH' => $request->ph,
+                'TDS' => $request->tds,
+                'turbidity' => $request->turbidity,
+                'notes' => $request->notes,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Treatment stage saved successfully',
+                'data' => $treatmentStage
+            ], 201);
+        } catch (\Exception $e) {
+            \Log::error('saveTreatmentStage: Failed to save treatment stage', [
+                'user_id' => $user->id,
+                'treatment_id' => $treatmentReport->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to save treatment stage',
                 'error' => $e->getMessage()
             ], 500);
         }

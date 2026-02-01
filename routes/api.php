@@ -153,6 +153,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
 
     Route::post('v1/treatment', [TreatmentController::class, 'saveTreatment']);
     Route::put('v1/treatment/update-treatment', [TreatmentController::class, 'updateTreatment']);
+    Route::post('v1/treatment/stages', [TreatmentController::class, 'saveTreatmentStage']);
     // Reports and Analytics endpoints
     Route::prefix('v1/reports')->group(function () {
         // Crop analytics
