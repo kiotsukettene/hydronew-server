@@ -357,6 +357,67 @@ class AnalyticsService
     }
 
     /**
+     * Calculate water system comparison between dirty and clean water
+     */
+    public function calculateWaterSystemComparison(Collection $dirtyWaterReadings, Collection $cleanWaterReadings): array
+    {
+        if ($dirtyWaterReadings->isEmpty() || $cleanWaterReadings->isEmpty()) {
+            return [
+                'turbidity_reduction' => 0,
+                'tds_reduction' => 0,
+                'ph_stabilization' => false,
+                'ph_change' => 0,
+                'filtration_effectiveness' => 'insufficient_data',
+            ];
+        }
+
+        // Calculate average values for dirty water
+        $dirtyAvgTurbidity = $dirtyWaterReadings->avg('turbidity');
+        $dirtyAvgTds = $dirtyWaterReadings->avg('tds');
+        $dirtyAvgPh = $dirtyWaterReadings->avg('ph');
+
+        // Calculate average values for clean water
+        $cleanAvgTurbidity = $cleanWaterReadings->avg('turbidity');
+        $cleanAvgTds = $cleanWaterReadings->avg('tds');
+        $cleanAvgPh = $cleanWaterReadings->avg('ph');
+
+        // Calculate improvement metrics
+        $turbidityReduction = $this->calculateReductionPercentage($dirtyAvgTurbidity, $cleanAvgTurbidity);
+        $tdsReduction = $this->calculateReductionPercentage($dirtyAvgTds, $cleanAvgTds);
+        $phChange = $this->calculatePhChange($dirtyAvgPh, $cleanAvgPh);
+        
+        // pH stabilization: clean water pH closer to neutral (7.0) than dirty water
+        $phStabilization = abs(($cleanAvgPh ?? 7.0) - 7.0) < abs(($dirtyAvgPh ?? 7.0) - 7.0);
+
+        // Determine filtration effectiveness
+        $effectiveness = $this->determineFiltrationEffectiveness($turbidityReduction, $tdsReduction);
+
+        return [
+            'turbidity_reduction' => $turbidityReduction,
+            'tds_reduction' => $tdsReduction,
+            'ph_stabilization' => $phStabilization,
+            'ph_change' => $phChange,
+            'filtration_effectiveness' => $effectiveness,
+        ];
+    }
+
+    /**
+     * Determine filtration effectiveness based on reduction percentages
+     */
+    private function determineFiltrationEffectiveness(float $turbidityReduction, float $tdsReduction): string
+    {
+        if ($turbidityReduction >= 90 && $tdsReduction >= 50) {
+            return 'excellent';
+        } elseif ($turbidityReduction >= 70 && $tdsReduction >= 30) {
+            return 'good';
+        } elseif ($turbidityReduction >= 50 || $tdsReduction >= 20) {
+            return 'moderate';
+        } else {
+            return 'poor';
+        }
+    }
+
+    /**
      * HELPER METHODS
      */
 

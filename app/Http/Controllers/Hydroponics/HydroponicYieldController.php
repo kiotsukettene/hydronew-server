@@ -17,15 +17,11 @@ class HydroponicYieldController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        $limit = $request->input('limit', 10);
+        $offset = $request->input('offset', 0);
 
         // Get filter parameters
         $filters = $request->only(['search', 'month', 'date_type']);
-
-        // Get all harvested setups for the user with filters applied
-        $setupsQuery = HydroponicSetup::where('user_id', $user->id)
-            ->harvested()
-            ->filter($filters)
-            ->with(['hydroponic_yields.grades']);
 
         // Get all setups for statistics calculation (before pagination)
         $allHarvestedSetups = HydroponicSetup::where('user_id', $user->id)
@@ -36,11 +32,23 @@ class HydroponicYieldController extends Controller
         // Calculate statistics
         $statistics = $this->calculateStatistics($allHarvestedSetups);
 
-        // Paginate the filtered results
-        $setups = $setupsQuery->paginate($request->get('per_page', 10));
+        // Get total count of filtered results
+        $total = HydroponicSetup::where('user_id', $user->id)
+            ->harvested()
+            ->filter($filters)
+            ->count();
+
+        // Get paginated filtered results
+        $setups = HydroponicSetup::where('user_id', $user->id)
+            ->harvested()
+            ->filter($filters)
+            ->with(['hydroponic_yields.grades'])
+            ->skip($offset)
+            ->take($limit)
+            ->get();
 
         // Transform data with duration calculation
-        $data = $setups->getCollection()->map(function ($setup) {
+        $data = $setups->map(function ($setup) {
             $yield = $setup->hydroponic_yields->first();
 
             // Calculate duration: days from setup_date to harvest_date
@@ -77,13 +85,14 @@ class HydroponicYieldController extends Controller
             ];
         });
 
-        // Replace the collection with transformed data
-        $setups->setCollection($data);
-
         return response()->json([
             'status' => 'success',
             'statistics' => $statistics,
-            'data' => $setups,
+            'data' => $data,
+            'has_more' => ($offset + $limit) < $total,
+            'total' => $total,
+            'offset' => $offset,
+            'limit' => $limit,
         ]);
     }
 
