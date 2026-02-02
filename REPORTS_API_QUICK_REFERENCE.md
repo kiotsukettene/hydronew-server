@@ -126,9 +126,55 @@
 
 ---
 
+### 6. Water Comparison
+**GET** `/api/v1/reports/water-comparison`
+
+**Query Parameters:**
+- `device_id` (optional): Device ID (defaults to user's first device)
+- `days` (optional): 1-90 (default: 7)
+
+**Returns:**
+- Turbidity reduction percentage
+- TDS reduction percentage
+- pH stabilization indicator
+- pH change value
+- Filtration effectiveness rating (excellent/good/moderate/poor)
+- Readings count for both systems
+
+**Response Structure:**
+```json
+{
+  "status": "success",
+  "data": {
+    "turbidity_reduction": 93.3,
+    "tds_reduction": 56.25,
+    "ph_stabilization": true,
+    "ph_change": 0.8,
+    "filtration_effectiveness": "excellent"
+  },
+  "meta": {
+    "device_id": 1,
+    "days_analyzed": 7,
+    "readings_count": {
+      "dirty_water": 168,
+      "clean_water": 168
+    },
+    "generated_at": "2026-01-30T10:00:00Z"
+  }
+}
+```
+
+**Effectiveness Ratings:**
+- **excellent**: turbidity_reduction ≥ 90% AND tds_reduction ≥ 50%
+- **good**: turbidity_reduction ≥ 70% AND tds_reduction ≥ 30%
+- **moderate**: turbidity_reduction ≥ 50% OR tds_reduction ≥ 20%
+- **poor**: below moderate thresholds
+
+---
+
 ## 🔬 Treatment Performance Endpoints
 
-### 6. Treatment Performance
+### 7. Treatment Performance
 **GET** `/api/v1/reports/treatment-performance`
 
 **Query Parameters:**
@@ -147,7 +193,7 @@
 
 ---
 
-### 7. Treatment Efficiency
+### 8. Treatment Efficiency
 **GET** `/api/v1/reports/treatment-efficiency`
 
 **Query Parameters:**

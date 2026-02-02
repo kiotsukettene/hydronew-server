@@ -165,6 +165,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
         // Water quality
         Route::get('/water-quality/historical', [ReportsController::class, 'waterQualityHistorical']);
         Route::get('/water-quality/trends', [ReportsController::class, 'waterQualityTrends']);
+        Route::get('/water-comparison', [ReportsController::class, 'waterComparison']);
 
         // Treatment performance
         Route::get('/treatment-performance', [ReportsController::class, 'treatmentPerformance']);

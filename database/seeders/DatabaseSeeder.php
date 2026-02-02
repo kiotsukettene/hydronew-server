@@ -17,6 +17,7 @@ use Database\Seeders\TreatmentStagesSeeder;
 use Database\Seeders\TreatmentReportsSeeder;
 use Database\Seeders\DeviceUserSeeder;
 use Database\Seeders\PairingTokenSeeder;
+use Database\Seeders\AdminSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -28,6 +29,7 @@ class DatabaseSeeder extends Seeder
         // User::factory(10)->create();
 
         $this->call([
+            AdminSeeder::class,
             UsersSeeder::class,
             DevicesSeeder::class,
             SensorSystemSeeder::class,
