@@ -137,4 +137,25 @@ public function fetchDevices(Request $request)
     ], 200);
 
 }
+
+/**
+ * Unpair the current user from their device(s) by removing the user from device_users.
+ * Uses the logged-in user's id; no device_id needed.
+ */
+public function unpair(Request $request)
+{
+    $user = $request->user();
+
+    $deleted = DeviceUser::where('user_id', $user->id)->delete();
+
+    if ($deleted === 0) {
+        return response()->json([
+            'message' => 'No device paired with your account.',
+        ], 404);
+    }
+
+    return response()->json([
+        'message' => 'Device unpaired successfully.',
+    ], 200);
+}
 }

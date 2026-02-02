@@ -10,6 +10,7 @@ use App\Models\HydroponicYield;
 use App\Models\HydroponicYieldGrade;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 use Carbon\Carbon;
 
 class HydroponicSetupController extends Controller
@@ -21,19 +22,30 @@ class HydroponicSetupController extends Controller
         $this->notificationService = $notificationService;
     }
 
-    public function index()
+    public function index(Request $request)
     {
-
         $user = Auth::user();
+        $limit = $request->input('limit', 10);
+        $offset = $request->input('offset', 0);
 
+        // Get total count before pagination
+        $total = HydroponicSetup::where('user_id', $user->id)
+            ->where('harvest_status', '!=', 'harvested')
+            ->where('is_archived', false)
+            ->where('status', 'active')
+            ->count();
+
+        // Get paginated setups
         $setups = HydroponicSetup::where('user_id', $user->id)
-        ->where('harvest_status', '!=', 'harvested')
-        ->where('is_archived', false)
-        ->where('status', 'active')
-        ->paginate(5);
+            ->where('harvest_status', '!=', 'harvested')
+            ->where('is_archived', false)
+            ->where('status', 'active')
+            ->skip($offset)
+            ->take($limit)
+            ->get();
 
         // Calculate growth_percentage, plant_age, days_left, and growth_stage for each setup
-        $setups->getCollection()->transform(function ($setup) {
+        $setups->transform(function ($setup) {
             $setupDate = Carbon::parse($setup->setup_date);
             $now = Carbon::now();
 
@@ -80,7 +92,11 @@ class HydroponicSetupController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $setups
+            'data' => $setups,
+            'has_more' => ($offset + $limit) < $total,
+            'total' => $total,
+            'offset' => $offset,
+            'limit' => $limit,
         ]);
     }
 

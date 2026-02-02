@@ -17,6 +17,7 @@ use App\Http\Controllers\Devices\MQTTSensorDataController;
 use App\Http\Controllers\Hydroponics\HydroponicSetupController;
 use App\Http\Controllers\Hydroponics\HydroponicYieldController;
 use App\Http\Controllers\TipsSuggestions\TipsController;
+use App\Http\Controllers\Treatment\TreatmentController;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
 use Illuminate\Support\Facades\Broadcast;
@@ -121,6 +122,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::post('v1/devices/connect', [DeviceController::class, 'connectDevice']);
     Route::post('v1/devices/{device}/disconnect', [DeviceController::class, 'disconnectDevice']);
     Route::post('v1/devices/pairing-token', [DeviceController::class, 'pairingToken']);
+    Route::post('v1/devices/unpair', [DeviceController::class, 'unpair']);
 
     Route::get('v1/water-monitoring', [WaterMonitoringController::class, 'index']);
 
@@ -149,6 +151,10 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::post('v1/feedback', [FeedbackController::class, 'store']);
     Route::get('v1/feedback', [FeedbackController::class, 'index']);
 
+    Route::post('v1/treatment', [TreatmentController::class, 'saveTreatment']);
+    Route::put('v1/treatment/update-treatment', [TreatmentController::class, 'updateTreatment']);
+    Route::post('v1/treatment/stages', [TreatmentController::class, 'saveTreatmentStage']);
+    Route::put('v1/treatment/update-stages', [TreatmentController::class, 'updateTreatmentStage']);
     // Reports and Analytics endpoints
     Route::prefix('v1/reports')->group(function () {
         // Crop analytics
@@ -159,6 +165,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
         // Water quality
         Route::get('/water-quality/historical', [ReportsController::class, 'waterQualityHistorical']);
         Route::get('/water-quality/trends', [ReportsController::class, 'waterQualityTrends']);
+        Route::get('/water-comparison', [ReportsController::class, 'waterComparison']);
 
         // Treatment performance
         Route::get('/treatment-performance', [ReportsController::class, 'treatmentPerformance']);
