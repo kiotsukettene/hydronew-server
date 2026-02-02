@@ -60,24 +60,26 @@ describe('List Hydroponic Setups', function () {
         $response->assertStatus(200)
             ->assertJsonStructure([
                 'status',
-                'data' => [
-                    'data',
-                    'current_page',
-                    'per_page',
-                    'total',
-                ],
+                'data',
+                'has_more',
+                'total',
+                'offset',
+                'limit',
             ])
             ->assertJson([
                 'status' => 'success',
+                'has_more' => false,
+                'offset' => 0,
+                'limit' => 10,
             ]);
 
-        expect($response->json('data.total'))->toBe(3)
-            ->and($response->json('data.per_page'))->toBe(5);
+        expect($response->json('total'))->toBe(3)
+            ->and(count($response->json('data')))->toBe(3);
     });
 
-    it('pagination works correctly', function () {
-        // Create 12 active setups
-        HydroponicSetup::factory()->count(12)->create([
+    it('infinite scroll works correctly', function () {
+        // Create 25 active setups
+        HydroponicSetup::factory()->count(25)->create([
             'user_id' => $this->user->id,
             'harvest_status' => 'not_harvested',
             'is_archived' => false,
@@ -86,31 +88,34 @@ describe('List Hydroponic Setups', function () {
             'harvest_date' => now()->addDays(20),
         ]);
 
-        // First page
+        // First batch (default limit 10, offset 0)
         $response = $this->actingAs($this->user)
             ->getJson('/api/v1/hydroponic-setups');
 
         $response->assertStatus(200);
-        expect($response->json('data.per_page'))->toBe(5)
-            ->and($response->json('data.total'))->toBe(12)
-            ->and($response->json('data.current_page'))->toBe(1)
-            ->and(count($response->json('data.data')))->toBe(5);
+        expect((int) $response->json('limit'))->toBe(10)
+            ->and($response->json('total'))->toBe(25)
+            ->and((int) $response->json('offset'))->toBe(0)
+            ->and($response->json('has_more'))->toBe(true)
+            ->and(count($response->json('data')))->toBe(10);
 
-        // Second page
+        // Second batch (limit 10, offset 10)
         $response = $this->actingAs($this->user)
-            ->getJson('/api/v1/hydroponic-setups?page=2');
+            ->getJson('/api/v1/hydroponic-setups?limit=10&offset=10');
 
         $response->assertStatus(200);
-        expect($response->json('data.current_page'))->toBe(2)
-            ->and(count($response->json('data.data')))->toBe(5);
+        expect((int) $response->json('offset'))->toBe(10)
+            ->and($response->json('has_more'))->toBe(true)
+            ->and(count($response->json('data')))->toBe(10);
 
-        // Third page (should have 2 items)
+        // Third batch (limit 10, offset 20, should have 5 items)
         $response = $this->actingAs($this->user)
-            ->getJson('/api/v1/hydroponic-setups?page=3');
+            ->getJson('/api/v1/hydroponic-setups?limit=10&offset=20');
 
         $response->assertStatus(200);
-        expect($response->json('data.current_page'))->toBe(3)
-            ->and(count($response->json('data.data')))->toBe(2);
+        expect((int) $response->json('offset'))->toBe(20)
+            ->and($response->json('has_more'))->toBe(false)
+            ->and(count($response->json('data')))->toBe(5);
     });
 
     it('growth_percentage, plant_age, and days_left are returned', function () {
@@ -133,7 +138,7 @@ describe('List Hydroponic Setups', function () {
 
         $response->assertStatus(200);
 
-        $setupData = collect($response->json('data.data'))->firstWhere('id', $setup->id);
+        $setupData = collect($response->json('data'))->firstWhere('id', $setup->id);
         expect($setupData)->not->toBeNull()
             ->and($setupData['plant_age'])->toBe($expectedPlantAge)
             ->and($setupData['days_left'])->toBe($expectedDaysLeft)

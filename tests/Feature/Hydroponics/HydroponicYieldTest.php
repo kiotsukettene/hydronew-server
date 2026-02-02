@@ -52,18 +52,20 @@ describe('List Harvested Yields', function () {
                     'total_consumed',
                     'total_disposed',
                 ],
-                'data' => [
-                    'data',
-                    'current_page',
-                    'per_page',
-                    'total',
-                ],
+                'data',
+                'has_more',
+                'total',
+                'offset',
+                'limit',
             ])
             ->assertJson([
                 'status' => 'success',
+                'has_more' => false,
+                'offset' => 0,
+                'limit' => 10,
             ]);
 
-        expect($response->json('data.total'))->toBe(1);
+        expect($response->json('total'))->toBe(1);
     });
 
     it('filtering returns expected results', function () {
@@ -90,13 +92,13 @@ describe('List Harvested Yields', function () {
             ->getJson('/api/v1/hydroponic-yields?search=Lettuce');
 
         $response->assertStatus(200);
-        expect($response->json('data.total'))->toBe(1)
-            ->and($response->json('data.data.0.crop_name'))->toBe('Lettuce');
+        expect($response->json('total'))->toBe(1)
+            ->and($response->json('data.0.crop_name'))->toBe('Lettuce');
     });
 
-    it('pagination works correctly', function () {
-        // Create 15 harvested setups
-        $setups = HydroponicSetup::factory()->count(15)->create([
+    it('infinite scroll works correctly', function () {
+        // Create 25 harvested setups
+        $setups = HydroponicSetup::factory()->count(25)->create([
             'user_id' => $this->user->id,
             'harvest_status' => 'harvested',
             'harvest_date' => now()->subDays(5),
@@ -106,23 +108,34 @@ describe('List Harvested Yields', function () {
             HydroponicYield::factory()->create(['hydroponic_setup_id' => $setup->id]);
         }
 
-        // First page (default 10 per page)
+        // First batch (default limit 10, offset 0)
         $response = $this->actingAs($this->user)
             ->getJson('/api/v1/hydroponic-yields');
 
         $response->assertStatus(200);
-        expect($response->json('data.per_page'))->toBe(10)
-            ->and($response->json('data.total'))->toBe(15)
-            ->and($response->json('data.current_page'))->toBe(1)
-            ->and(count($response->json('data.data')))->toBe(10);
+        expect((int) $response->json('limit'))->toBe(10)
+            ->and($response->json('total'))->toBe(25)
+            ->and((int) $response->json('offset'))->toBe(0)
+            ->and($response->json('has_more'))->toBe(true)
+            ->and(count($response->json('data')))->toBe(10);
 
-        // Second page
+        // Second batch (limit 10, offset 10)
         $response = $this->actingAs($this->user)
-            ->getJson('/api/v1/hydroponic-yields?page=2');
+            ->getJson('/api/v1/hydroponic-yields?limit=10&offset=10');
 
         $response->assertStatus(200);
-        expect($response->json('data.current_page'))->toBe(2)
-            ->and(count($response->json('data.data')))->toBe(5);
+        expect((int) $response->json('offset'))->toBe(10)
+            ->and($response->json('has_more'))->toBe(true)
+            ->and(count($response->json('data')))->toBe(10);
+
+        // Third batch (limit 10, offset 20, should have 5 items)
+        $response = $this->actingAs($this->user)
+            ->getJson('/api/v1/hydroponic-yields?limit=10&offset=20');
+
+        $response->assertStatus(200);
+        expect((int) $response->json('offset'))->toBe(20)
+            ->and($response->json('has_more'))->toBe(false)
+            ->and(count($response->json('data')))->toBe(5);
     });
 
     it('statistics returned match actual yields', function () {
@@ -201,7 +214,7 @@ describe('List Harvested Yields', function () {
             ->getJson('/api/v1/hydroponic-yields');
 
         $response->assertStatus(200);
-        $setupData = collect($response->json('data.data'))->firstWhere('id', $setup->id);
+        $setupData = collect($response->json('data'))->firstWhere('id', $setup->id);
         expect($setupData)->not->toBeNull()
             ->and($setupData['duration_days'])->toBe($expectedDuration);
     });
