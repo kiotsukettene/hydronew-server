@@ -107,7 +107,7 @@ public function provision(Request $request)
     ];
 
 
-    app(MqttService::class)->publish("devices/{$pairingToken->user_id}/pairing", $payload, 1, true);
+    app(MqttService::class)->publish("devices/{$pairingToken->user_id}/pairing", $payload, 1, false);
 
     return response()->json([
         'message' => 'Device successfully paired',
