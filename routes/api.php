@@ -123,6 +123,8 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::post('v1/devices/{device}/disconnect', [DeviceController::class, 'disconnectDevice']);
     Route::post('v1/devices/pairing-token', [DeviceController::class, 'pairingToken']);
     Route::post('v1/devices/unpair', [DeviceController::class, 'unpair']);
+    Route::post('v1/devices/generate-qr-payload', [DeviceController::class, 'generateQrPayload']);
+    Route::post('v1/devices/pair-by-qr', [DeviceController::class, 'pairByQr']);
 
     Route::get('v1/water-monitoring', [WaterMonitoringController::class, 'index']);
 
