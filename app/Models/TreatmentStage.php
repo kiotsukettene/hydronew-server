@@ -35,7 +35,9 @@ class TreatmentStage extends Model
 		'stage_order' => 'int',
 		'pH' => 'float',
 		'turbidity' => 'float',
-		'TDS' => 'float'
+		'TDS' => 'float',
+		'started_at' => 'datetime',
+		'completed_at' => 'datetime',
 	];
 
 	protected $fillable = [
@@ -46,7 +48,9 @@ class TreatmentStage extends Model
 		'pH',
 		'turbidity',
 		'TDS',
-		'notes'
+		'notes',
+		'started_at',
+		'completed_at',
 	];
 
 	public function treatment_report()

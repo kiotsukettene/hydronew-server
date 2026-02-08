@@ -15,6 +15,7 @@ use Database\Seeders\HydroponicYieldGradeSeeder;
 use Database\Seeders\TipsSuggestionsSeeder;
 use Database\Seeders\TreatmentStagesSeeder;
 use Database\Seeders\TreatmentReportsSeeder;
+use Database\Seeders\FiltrationProcessSeeder;
 use Database\Seeders\DeviceUserSeeder;
 use Database\Seeders\PairingTokenSeeder;
 use Database\Seeders\AdminSeeder;
@@ -36,6 +37,7 @@ class DatabaseSeeder extends Seeder
             SensorReadingsSeeder::class,
             TreatmentReportsSeeder::class,
             TreatmentStagesSeeder::class,
+            FiltrationProcessSeeder::class, // Seed filtration processes after treatment reports
             HydroponicSetupSeeder::class,
             HydroponicYieldSeeder::class,
             HydroponicYieldGradeSeeder::class,

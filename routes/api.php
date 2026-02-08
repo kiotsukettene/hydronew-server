@@ -153,6 +153,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::post('v1/feedback', [FeedbackController::class, 'store']);
     Route::get('v1/feedback', [FeedbackController::class, 'index']);
 
+    Route::get('v1/treatment/latest', [TreatmentController::class, 'getLatestTreatmentReport']);
     Route::post('v1/treatment', [TreatmentController::class, 'saveTreatment']);
     Route::put('v1/treatment/update-treatment', [TreatmentController::class, 'updateTreatment']);
     Route::post('v1/treatment/stages', [TreatmentController::class, 'saveTreatmentStage']);

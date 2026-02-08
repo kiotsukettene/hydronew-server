@@ -11,6 +11,75 @@ use Illuminate\Support\Facades\Validator;
 class TreatmentController extends Controller
 {
     /**
+     * Get the latest treatment report for the user's device.
+     * If the report is pending, includes its treatment_stages so the frontend can show stage statuses.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getLatestTreatmentReport(Request $request)
+    {
+        $user = $request->user();
+        $device = $user->devices()->first();
+
+        if (!$device) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No device connected to this user'
+            ], 404);
+        }
+
+        $treatmentReport = TreatmentReport::where('device_id', $device->id)
+            ->latest('start_time')
+            ->first();
+
+        if (!$treatmentReport) {
+            return response()->json([
+                'success' => true,
+                'data' => null,
+                'message' => 'No treatment report found'
+            ], 200);
+        }
+
+        $isPending = $treatmentReport->final_status === 'pending';
+
+        if ($isPending) {
+            $treatmentReport->load(['treatment_stages' => function ($query) {
+                $query->orderBy('stage_order');
+            }]);
+        }
+
+        $payload = [
+            'id' => $treatmentReport->id,
+            'device_id' => $treatmentReport->device_id,
+            'start_time' => $treatmentReport->start_time?->toIso8601String(),
+            'end_time' => $treatmentReport->end_time?->toIso8601String(),
+            'final_status' => $treatmentReport->final_status,
+            'total_cycles' => $treatmentReport->total_cycles,
+        ];
+
+        if ($isPending && $treatmentReport->relationLoaded('treatment_stages')) {
+            $payload['stages'] = $treatmentReport->treatment_stages->map(function ($stage) {
+                return [
+                    'id' => $stage->id,
+                    'stage_name' => $stage->stage_name,
+                    'stage_order' => $stage->stage_order,
+                    'status' => $stage->status,
+                    'ph' => $stage->pH,
+                    'tds' => $stage->TDS,
+                    'turbidity' => $stage->turbidity,
+                    'notes' => $stage->notes,
+                ];
+            })->values();
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $payload
+        ], 200);
+    }
+
+    /**
      * Save a new treatment report
      *
      * @param Request $request

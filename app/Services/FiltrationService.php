@@ -1,0 +1,757 @@
+<?php
+
+namespace App\Services;
+
+use App\Jobs\ProcessFiltrationStageJob;
+use App\Models\Device;
+use App\Models\FiltrationProcess;
+use App\Models\SensorReading;
+use App\Models\SensorSystem;
+use App\Models\TreatmentReport;
+use App\Models\TreatmentStage;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
+class FiltrationService
+{
+    protected MqttService $mqttService;
+
+    public function __construct(MqttService $mqttService)
+    {
+        $this->mqttService = $mqttService;
+    }
+
+    /**
+     * Handle pump 3 acknowledgment (Stage 1 start)
+     * Ack=1 means pump started successfully
+     */
+    public function handlePump3Ack(string $deviceSerial): void
+    {
+        Log::info('FiltrationService: handlePump3Ack', ['serial' => $deviceSerial]);
+
+        try {
+            $device = Device::where('serial_number', $deviceSerial)->first();
+            if (!$device) {
+                Log::warning('FiltrationService: Device not found', ['serial' => $deviceSerial]);
+                return;
+            }
+
+            DB::transaction(function () use ($device, $deviceSerial) {
+                // Create TreatmentReport
+                $treatmentReport = TreatmentReport::create([
+                    'device_id' => $device->id,
+                    'start_time' => now(),
+                    'end_time' => null,
+                    'final_status' => 'pending',
+                    'total_cycles' => null,
+                ]);
+
+                // Create FiltrationProcess
+                $filtrationProcess = FiltrationProcess::create([
+                    'device_id' => $device->id,
+                    'treatment_report_id' => $treatmentReport->id,
+                    'status' => 'active',
+                    'pump_3_state' => true,
+                    'valve_1_state' => false,
+                    'valve_2_state' => false,
+                    'stage_1_started_at' => now(),
+                    'stages_2_4_started_at' => null,
+                    'restart_count' => 0,
+                ]);
+
+                // Create Stage 1 (MFC) - processing
+                TreatmentStage::create([
+                    'treatment_id' => $treatmentReport->id,
+                    'stage_name' => 'MFC',
+                    'stage_order' => 1,
+                    'status' => 'processing',
+                    'started_at' => now(),
+                    'completed_at' => null,
+                ]);
+
+                Log::info('FiltrationService: Stage 1 started', [
+                    'serial' => $deviceSerial,
+                    'filtration_process_id' => $filtrationProcess->id,
+                    'treatment_report_id' => $treatmentReport->id,
+                ]);
+            });
+
+            // Publish stage 1 state
+            $this->publishStageState($deviceSerial, 1, 'processing');
+
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: handlePump3Ack failed', [
+                'serial' => $deviceSerial,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    /**
+     * Handle valve 1 state changes
+     * State: 1=open, 0=closed
+     */
+    public function handleValve1State(string $deviceSerial, int $stateValue): void
+    {
+        Log::info('FiltrationService: handleValve1State', [
+            'serial' => $deviceSerial,
+            'state' => $stateValue
+        ]);
+
+        try {
+            $device = Device::where('serial_number', $deviceSerial)->first();
+            if (!$device) {
+                Log::warning('FiltrationService: Device not found', ['serial' => $deviceSerial]);
+                return;
+            }
+
+            $filtrationProcess = FiltrationProcess::where('device_id', $device->id)
+                ->where('status', 'active')
+                ->first();
+
+            if (!$filtrationProcess) {
+                Log::info('FiltrationService: No active filtration process', ['serial' => $deviceSerial]);
+                return;
+            }
+
+            // Update valve state
+            $filtrationProcess->update(['valve_1_state' => (bool)$stateValue]);
+
+            // If valve closed (0) and Stage 1 is processing, complete Stage 1 and start Stage 2-4 cycle
+            if ($stateValue === 0) {
+                $stage1 = TreatmentStage::where('treatment_id', $filtrationProcess->treatment_report_id)
+                    ->where('stage_order', 1)
+                    ->where('status', 'processing')
+                    ->first();
+
+                if ($stage1) {
+                    DB::transaction(function () use ($filtrationProcess, $stage1, $deviceSerial) {
+                        // Complete Stage 1
+                        $stage1->update([
+                            'status' => 'passed',
+                            'completed_at' => now(),
+                        ]);
+
+                        // Update filtration process
+                        $filtrationProcess->update([
+                            'stages_2_4_started_at' => now(),
+                        ]);
+
+                        Log::info('FiltrationService: Stage 1 completed (valve state), starting Stage 2-4 cycle', [
+                            'serial' => $deviceSerial,
+                            'filtration_process_id' => $filtrationProcess->id,
+                        ]);
+
+                        // Publish stage 1 passed
+                        $this->publishStageState($deviceSerial, 1, 'passed');
+
+                        // Dispatch all 6 timed jobs for stages 2-4
+                        $this->dispatchStage24Jobs($filtrationProcess->id);
+
+                        // Start Stage 2 immediately so frontend gets "processing" without waiting for queue
+                        $this->startStage($filtrationProcess->id, 2);
+                    });
+                } else {
+                    Log::warning('FiltrationService: Valve 1 closed but Stage 1 not in processing – skipping completion', [
+                        'serial' => $deviceSerial,
+                        'treatment_report_id' => $filtrationProcess->treatment_report_id,
+                    ]);
+                }
+            }
+
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: handleValve1State failed', [
+                'serial' => $deviceSerial,
+                'state' => $stateValue,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    /**
+     * Handle valve 1 acknowledgment (when IoT sends ack=1 but no state message).
+     * Treats ack as "command executed" and toggles valve state, then publishes state so frontend stays in sync.
+     */
+    public function handleValve1Ack(string $deviceSerial): void
+    {
+        Log::info('FiltrationService: handleValve1Ack', ['serial' => $deviceSerial]);
+
+        try {
+            $device = Device::where('serial_number', $deviceSerial)->first();
+            if (!$device) {
+                Log::warning('FiltrationService: Device not found', ['serial' => $deviceSerial]);
+                return;
+            }
+
+            $filtrationProcess = FiltrationProcess::where('device_id', $device->id)
+                ->where('status', 'active')
+                ->first();
+
+            if (!$filtrationProcess) {
+                Log::info('FiltrationService: No active filtration process', ['serial' => $deviceSerial]);
+                return;
+            }
+
+            // Ack=1 means command executed; new state is the opposite of current (OPEN/CLOSE toggled)
+            $newState = $filtrationProcess->valve_1_state ? 0 : 1;
+
+            // If we would toggle to "open" but Stage 1 was already completed (stages_2_4 started), this is a late ack – keep valve closed
+            if ($newState === 1 && $filtrationProcess->stages_2_4_started_at !== null) {
+                $newState = 0;
+            }
+            $filtrationProcess->update(['valve_1_state' => (bool)$newState]);
+
+            // Publish valve 1 state so frontend can update UI
+            $this->publishValve1State($deviceSerial, $newState);
+
+            // If valve closed (0) and Stage 1 is processing, complete Stage 1 and start Stage 2-4 cycle
+            if ($newState === 0) {
+                $stage1 = TreatmentStage::where('treatment_id', $filtrationProcess->treatment_report_id)
+                    ->where('stage_order', 1)
+                    ->where('status', 'processing')
+                    ->first();
+
+                if ($stage1) {
+                    DB::transaction(function () use ($filtrationProcess, $stage1, $deviceSerial) {
+                        $stage1->update([
+                            'status' => 'passed',
+                            'completed_at' => now(),
+                        ]);
+                        $filtrationProcess->update(['stages_2_4_started_at' => now()]);
+                        Log::info('FiltrationService: Stage 1 completed (from valve ack), starting Stage 2-4 cycle', [
+                            'serial' => $deviceSerial,
+                            'filtration_process_id' => $filtrationProcess->id,
+                        ]);
+                        $this->publishStageState($deviceSerial, 1, 'passed');
+                        $this->dispatchStage24Jobs($filtrationProcess->id);
+
+                        // Start Stage 2 immediately so frontend gets "processing" without waiting for queue
+                        $this->startStage($filtrationProcess->id, 2);
+                    });
+                } else {
+                    Log::warning('FiltrationService: Valve 1 ack (closed) but Stage 1 not in processing – skipping completion', [
+                        'serial' => $deviceSerial,
+                        'treatment_report_id' => $filtrationProcess->treatment_report_id,
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: handleValve1Ack failed', [
+                'serial' => $deviceSerial,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    /**
+     * Handle valve 2 (drain valve) state changes
+     * State: 1=open, 0=closed
+     */
+    public function handleValve2State(string $deviceSerial, int $stateValue): void
+    {
+        Log::info('FiltrationService: handleValve2State', [
+            'serial' => $deviceSerial,
+            'state' => $stateValue
+        ]);
+
+        try {
+            $device = Device::where('serial_number', $deviceSerial)->first();
+            if (!$device) {
+                return;
+            }
+
+            $filtrationProcess = FiltrationProcess::where('device_id', $device->id)
+                ->where('status', 'active')
+                ->first();
+
+            if ($filtrationProcess) {
+                $filtrationProcess->update(['valve_2_state' => (bool)$stateValue]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: handleValve2State failed', [
+                'serial' => $deviceSerial,
+                'state' => $stateValue,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Handle restart pump acknowledgment
+     * Restart from Stage 2 (re-run stages 2-4)
+     */
+    public function handleRestartPumpAck(string $deviceSerial): void
+    {
+        Log::info('FiltrationService: handleRestartPumpAck', ['serial' => $deviceSerial]);
+
+        try {
+            $device = Device::where('serial_number', $deviceSerial)->first();
+            if (!$device) {
+                Log::warning('FiltrationService: Device not found', ['serial' => $deviceSerial]);
+                return;
+            }
+
+            $filtrationProcess = FiltrationProcess::where('device_id', $device->id)
+                ->where('status', 'active')
+                ->first();
+
+            if (!$filtrationProcess) {
+                Log::warning('FiltrationService: No active filtration process for restart', ['serial' => $deviceSerial]);
+                return;
+            }
+
+            DB::transaction(function () use ($filtrationProcess, $deviceSerial) {
+                // Reset stages 2-4 to pending
+                TreatmentStage::where('treatment_id', $filtrationProcess->treatment_report_id)
+                    ->whereIn('stage_order', [2, 3, 4])
+                    ->update([
+                        'status' => 'pending',
+                        'started_at' => null,
+                        'completed_at' => null,
+                    ]);
+
+                // Increment restart count
+                $filtrationProcess->increment('restart_count');
+                $filtrationProcess->update([
+                    'stages_2_4_started_at' => now(),
+                ]);
+
+                Log::info('FiltrationService: Restarting stages 2-4', [
+                    'serial' => $deviceSerial,
+                    'filtration_process_id' => $filtrationProcess->id,
+                    'restart_count' => $filtrationProcess->restart_count,
+                ]);
+
+                // Publish stage states as pending
+                $this->publishStageState($deviceSerial, 2, 'pending');
+                $this->publishStageState($deviceSerial, 3, 'pending');
+                $this->publishStageState($deviceSerial, 4, 'pending');
+
+                // Re-dispatch all timed jobs for stages 2-4
+                $this->dispatchStage24Jobs($filtrationProcess->id);
+            });
+
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: handleRestartPumpAck failed', [
+                'serial' => $deviceSerial,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    /**
+     * Dispatch all timed jobs for stages 2-4
+     */
+    protected function dispatchStage24Jobs(int $filtrationProcessId): void
+    {
+        // Dispatch schedule from T=0 (Stage 2 start):
+        // 0s    - start_stage_2    - Immediate
+        // 60s   - start_stage_3    - Stage 3 begins
+        // 70s   - start_stage_4    - Stage 4 begins (60+10)
+        // 1510s - complete_stage_2 - 25min + 10s
+        // 1520s - complete_stage_3 - 25min + 20s
+        // 1550s - evaluate_stage_4 - 25min + 50s
+
+        ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'start_stage_2')
+            ->delay(now()->addSeconds(0));
+
+        ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'start_stage_3')
+            ->delay(now()->addSeconds(60));
+
+        ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'start_stage_4')
+            ->delay(now()->addSeconds(70));
+
+        ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'complete_stage_2')
+            ->delay(now()->addSeconds(1510));
+
+        ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'complete_stage_3')
+            ->delay(now()->addSeconds(1520));
+
+        ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'evaluate_stage_4')
+            ->delay(now()->addSeconds(1550));
+
+        Log::info('FiltrationService: Dispatched 6 timed jobs for stages 2-4', [
+            'filtration_process_id' => $filtrationProcessId
+        ]);
+    }
+
+    /**
+     * Check automatic valve 1 conditions based on sensor data
+     * Called from MQTTSensorDataHandlerService after saving sensor readings
+     */
+    public function checkAutoValveConditions(int $deviceId, string $waterType, array $sensorData): void
+    {
+        // Only check for dirty_water type
+        if ($waterType !== 'dirty_water') {
+            return;
+        }
+
+        try {
+            $filtrationProcess = FiltrationProcess::where('device_id', $deviceId)
+                ->where('status', 'active')
+                ->first();
+
+            if (!$filtrationProcess) {
+                return;
+            }
+
+            $device = $filtrationProcess->device;
+            $waterLevel = $sensorData['WaterLevel'] ?? $sensorData['water_level'] ?? null;
+            $electricCurrent = $sensorData['ElectricCurrent'] ?? $sensorData['electric_current'] ?? null;
+
+            if ($waterLevel === null) {
+                return;
+            }
+
+            // OPEN condition: water_level >= 100 AND dirty_water.electric_current < 10 AND stage 1 started more than 1 day ago AND valve not open
+            if (!$filtrationProcess->valve_1_state && $waterLevel >= 100) {
+                $currentOk = $electricCurrent !== null && (float)$electricCurrent < 10;
+                $stage1OldEnough = $filtrationProcess->stage_1_started_at &&
+                    $filtrationProcess->stage_1_started_at->diffInHours(now()) >= 24;
+                if ($currentOk && $stage1OldEnough) {
+                    Log::info('FiltrationService: Auto-opening valve 1', [
+                        'device_id' => $deviceId,
+                        'water_level' => $waterLevel,
+                        'electric_current' => $electricCurrent,
+                        'stage_1_started_at' => $filtrationProcess->stage_1_started_at,
+                    ]);
+
+                    $this->publishCommand("mfc/{$device->serial_number}/valve/1", 'OPEN');
+                }
+            }
+
+            // CLOSE condition: water_level < 6 only (valve is open and tank drained)
+            if ($filtrationProcess->valve_1_state && $waterLevel < 6) {
+                Log::info('FiltrationService: Auto-closing valve 1', [
+                    'device_id' => $deviceId,
+                    'water_level' => $waterLevel,
+                ]);
+
+                $this->publishCommand("mfc/{$device->serial_number}/valve/1", 'CLOSE');
+            }
+
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: checkAutoValveConditions failed', [
+                'device_id' => $deviceId,
+                'water_type' => $waterType,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Start a stage (create TreatmentStage record with processing status)
+     */
+    public function startStage(int $filtrationProcessId, int $stageNumber): void
+    {
+        Log::info('FiltrationService: startStage', [
+            'filtration_process_id' => $filtrationProcessId,
+            'stage_number' => $stageNumber
+        ]);
+
+        try {
+            $filtrationProcess = FiltrationProcess::find($filtrationProcessId);
+            if (!$filtrationProcess || $filtrationProcess->status !== 'active') {
+                Log::info('FiltrationService: Filtration process not active, skipping startStage', [
+                    'filtration_process_id' => $filtrationProcessId,
+                    'stage_number' => $stageNumber
+                ]);
+                return;
+            }
+
+            $stageNames = [
+                2 => 'Natural Filter',
+                3 => 'UV Filter',
+                4 => 'Clean Water Tank',
+            ];
+
+            $stageName = $stageNames[$stageNumber] ?? 'Unknown';
+            $device = $filtrationProcess->device;
+
+            // Check if stage already exists
+            $stage = TreatmentStage::where('treatment_id', $filtrationProcess->treatment_report_id)
+                ->where('stage_order', $stageNumber)
+                ->first();
+
+            if ($stage) {
+                // Update existing stage to processing
+                $stage->update([
+                    'status' => 'processing',
+                    'started_at' => now(),
+                ]);
+            } else {
+                // Create new stage
+                TreatmentStage::create([
+                    'treatment_id' => $filtrationProcess->treatment_report_id,
+                    'stage_name' => $stageName,
+                    'stage_order' => $stageNumber,
+                    'status' => 'processing',
+                    'started_at' => now(),
+                    'completed_at' => null,
+                ]);
+            }
+
+            Log::info('FiltrationService: Stage started', [
+                'filtration_process_id' => $filtrationProcessId,
+                'stage_number' => $stageNumber,
+                'stage_name' => $stageName
+            ]);
+
+            $this->publishStageState($device->serial_number, $stageNumber, 'processing');
+
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: startStage failed', [
+                'filtration_process_id' => $filtrationProcessId,
+                'stage_number' => $stageNumber,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Complete a stage (update TreatmentStage to passed).
+     * Ensures order: stage N only completes after stage N-1 is passed (completes previous stage if still processing).
+     */
+    public function completeStage(int $filtrationProcessId, int $stageNumber): void
+    {
+        Log::info('FiltrationService: completeStage', [
+            'filtration_process_id' => $filtrationProcessId,
+            'stage_number' => $stageNumber
+        ]);
+
+        try {
+            $filtrationProcess = FiltrationProcess::find($filtrationProcessId);
+            if (!$filtrationProcess || $filtrationProcess->status !== 'active') {
+                Log::info('FiltrationService: Filtration process not active, skipping completeStage', [
+                    'filtration_process_id' => $filtrationProcessId,
+                    'stage_number' => $stageNumber
+                ]);
+                return;
+            }
+
+            // Ensure previous stage is passed first (handles queue jobs running out of order)
+            if ($stageNumber > 2) {
+                $prevStage = TreatmentStage::where('treatment_id', $filtrationProcess->treatment_report_id)
+                    ->where('stage_order', $stageNumber - 1)
+                    ->first();
+                if ($prevStage && $prevStage->status !== 'passed') {
+                    Log::info('FiltrationService: Completing previous stage first', [
+                        'filtration_process_id' => $filtrationProcessId,
+                        'completing_stage' => $stageNumber - 1
+                    ]);
+                    $this->completeStage($filtrationProcessId, $stageNumber - 1);
+                }
+            }
+
+            $stage = TreatmentStage::where('treatment_id', $filtrationProcess->treatment_report_id)
+                ->where('stage_order', $stageNumber)
+                ->where('status', 'processing')
+                ->first();
+
+            if ($stage) {
+                $stage->update([
+                    'status' => 'passed',
+                    'completed_at' => now(),
+                ]);
+
+                $device = $filtrationProcess->device;
+
+                Log::info('FiltrationService: Stage completed', [
+                    'filtration_process_id' => $filtrationProcessId,
+                    'stage_number' => $stageNumber
+                ]);
+
+                $this->publishStageState($device->serial_number, $stageNumber, 'passed');
+
+                // Re-publish previous stage passed so UI stays in sync if an earlier publish was lost
+                if ($stageNumber === 3) {
+                    $this->publishStageState($device->serial_number, 2, 'passed');
+                }
+            }
+
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: completeStage failed', [
+                'filtration_process_id' => $filtrationProcessId,
+                'stage_number' => $stageNumber,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Evaluate Stage 4 completion based on AI classification
+     */
+    public function evaluateStage4(int $filtrationProcessId): void
+    {
+        Log::info('FiltrationService: evaluateStage4', [
+            'filtration_process_id' => $filtrationProcessId
+        ]);
+
+        try {
+            $filtrationProcess = FiltrationProcess::find($filtrationProcessId);
+            if (!$filtrationProcess || $filtrationProcess->status !== 'active') {
+                Log::info('FiltrationService: Filtration process not active, skipping evaluateStage4', [
+                    'filtration_process_id' => $filtrationProcessId
+                ]);
+                return;
+            }
+
+            $device = $filtrationProcess->device;
+
+            // Ensure stages 2 and 3 are passed before evaluating (handles queue jobs running out of order)
+            foreach ([2, 3] as $stageNum) {
+                $stage = TreatmentStage::where('treatment_id', $filtrationProcess->treatment_report_id)
+                    ->where('stage_order', $stageNum)
+                    ->first();
+                if ($stage && $stage->status !== 'passed') {
+                    Log::info('FiltrationService: Completing stage before evaluateStage4', [
+                        'filtration_process_id' => $filtrationProcessId,
+                        'stage' => $stageNum
+                    ]);
+                    $this->completeStage($filtrationProcessId, $stageNum);
+                }
+            }
+
+            // Only consider clean_water AI classification from the last 2 minutes (sensor publishes every 10s; no stale DB reads)
+            $cleanWaterSystem = SensorSystem::where('device_id', $device->id)
+                ->where('system_type', 'clean_water')
+                ->first();
+
+            $latestReading = null;
+            if ($cleanWaterSystem) {
+                $realtimeCutoff = now()->subMinutes(2);
+                $latestReading = SensorReading::where('sensor_system_id', $cleanWaterSystem->id)
+                    ->whereNotNull('ai_classification')
+                    ->where('reading_time', '>=', $realtimeCutoff)
+                    ->orderBy('reading_time', 'desc')
+                    ->first();
+            }
+
+            // Restart only when realtime publish in last 2 min has ai_classification "bad" (if no publish, we pass)
+            if ($latestReading && $latestReading->ai_classification === 'bad') {
+                Log::info('FiltrationService: AI classification bad, publishing restart notification', [
+                    'filtration_process_id' => $filtrationProcessId,
+                    'classification' => $latestReading->ai_classification
+                ]);
+
+                // Update existing Stage 4 to failed only (do not create new rows)
+                $stage4 = TreatmentStage::where('treatment_id', $filtrationProcess->treatment_report_id)
+                    ->where('stage_order', 4)
+                    ->first();
+                if ($stage4) {
+                    $stage4->update([
+                        'status' => 'failed',
+                        'completed_at' => now(),
+                    ]);
+                }
+                $this->publishStageState($device->serial_number, 4, 'failed');
+
+                $this->publishCommand("filtration/{$device->serial_number}/restart", '1');
+                return;
+            }
+
+            // Otherwise: pass Stage 4 (no data, or classification is "good" or anything else)
+            if (!$latestReading) {
+                Log::info('FiltrationService: No AI classification data for Stage 4, treating as passed', [
+                    'filtration_process_id' => $filtrationProcessId,
+                    'device_id' => $device->id
+                ]);
+            } else {
+                Log::info('FiltrationService: AI classification', [
+                    'filtration_process_id' => $filtrationProcessId,
+                    'classification' => $latestReading->ai_classification,
+                    'confidence' => $latestReading->confidence
+                ]);
+            }
+
+            // Complete Stage 4 and mark treatment as success
+            DB::transaction(function () use ($filtrationProcess, $device) {
+                $stage4 = TreatmentStage::where('treatment_id', $filtrationProcess->treatment_report_id)
+                    ->where('stage_order', 4)
+                    ->first();
+
+                if ($stage4) {
+                    $stage4->update([
+                        'status' => 'passed',
+                        'completed_at' => now(),
+                    ]);
+                    $this->publishStageState($device->serial_number, 4, 'passed');
+                }
+
+                $filtrationProcess->treatment_report->update([
+                    'final_status' => 'success',
+                    'end_time' => now(),
+                    'total_cycles' => $filtrationProcess->restart_count + 1,
+                ]);
+
+                $filtrationProcess->update(['status' => 'completed']);
+
+                Log::info('FiltrationService: Treatment completed successfully', [
+                    'filtration_process_id' => $filtrationProcess->id,
+                    'restart_count' => $filtrationProcess->restart_count
+                ]);
+            });
+
+            // Always publish stages 2–4 passed so UI stays in sync (covers any lost earlier publish)
+            $this->publishStageState($device->serial_number, 2, 'passed');
+            $this->publishStageState($device->serial_number, 3, 'passed');
+            $this->publishStageState($device->serial_number, 4, 'passed');
+
+            if ($filtrationProcess->restart_count > 0) {
+                $this->publishCommand("filtration/{$device->serial_number}/restart", 'CLOSE');
+                $this->publishCommand("reservoir_fallback/{$device->serial_number}/pump/1", 'CLOSE');
+                Log::info('FiltrationService: Restart process completed – CLOSE for restart UI and pump', [
+                    'serial' => $device->serial_number
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: evaluateStage4 failed', [
+                'filtration_process_id' => $filtrationProcessId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    /**
+     * Publish MQTT command
+     */
+    public function publishCommand(string $topic, string $command): void
+    {
+        $this->mqttService->publish($topic, $command, 1);
+    }
+
+    /**
+     * Publish valve 1 state so frontend can sync UI (e.g. when only ack received, no state from IoT)
+     */
+    public function publishValve1State(string $deviceSerial, int $stateValue): void
+    {
+        $topic = "mfc/{$deviceSerial}/valve/1/state";
+        $this->mqttService->publish($topic, (string)$stateValue, 1);
+        Log::info('FiltrationService: Published valve 1 state', [
+            'topic' => $topic,
+            'state' => $stateValue
+        ]);
+    }
+
+    /**
+     * Publish stage state for frontend UI sync
+     */
+    public function publishStageState(string $deviceSerial, int $stageNumber, string $status): void
+    {
+        $topic = "filtration/{$deviceSerial}/stage/{$stageNumber}/state";
+        $this->mqttService->publish($topic, $status, 1);
+
+        Log::info('FiltrationService: Published stage state', [
+            'topic' => $topic,
+            'status' => $status
+        ]);
+    }
+}
