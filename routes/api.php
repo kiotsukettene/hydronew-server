@@ -18,6 +18,7 @@ use App\Http\Controllers\Hydroponics\HydroponicSetupController;
 use App\Http\Controllers\Hydroponics\HydroponicYieldController;
 use App\Http\Controllers\TipsSuggestions\TipsController;
 use App\Http\Controllers\Treatment\TreatmentController;
+use App\Http\Controllers\Filtration\FiltrationCommandController;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
 use Illuminate\Support\Facades\Broadcast;
@@ -155,6 +156,14 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
 
     Route::get('v1/treatment/latest', [TreatmentController::class, 'getLatestTreatmentReport']);
     Route::post('v1/treatment', [TreatmentController::class, 'saveTreatment']);
+
+    // Filtration commands (frontend calls these instead of publishing MQTT directly; backend publishes command, then state on ack)
+    Route::post('v1/filtration/commands/start-process', [FiltrationCommandController::class, 'startProcess']);
+    Route::post('v1/filtration/commands/open-valve-1', [FiltrationCommandController::class, 'openValve1']);
+    Route::post('v1/filtration/commands/close-valve-1', [FiltrationCommandController::class, 'closeValve1']);
+    Route::post('v1/filtration/commands/open-drain-valve', [FiltrationCommandController::class, 'openDrainValve']);
+    Route::post('v1/filtration/commands/close-drain-valve', [FiltrationCommandController::class, 'closeDrainValve']);
+    Route::post('v1/filtration/commands/restart', [FiltrationCommandController::class, 'restart']);
     Route::put('v1/treatment/update-treatment', [TreatmentController::class, 'updateTreatment']);
     Route::post('v1/treatment/stages', [TreatmentController::class, 'saveTreatmentStage']);
     Route::put('v1/treatment/update-stages', [TreatmentController::class, 'updateTreatmentStage']);

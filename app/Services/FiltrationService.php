@@ -282,6 +282,41 @@ class FiltrationService
     }
 
     /**
+     * Handle valve 2 (drain valve) acknowledgment. When ack=1, toggle state and publish so frontend stays in sync.
+     */
+    public function handleValve2Ack(string $deviceSerial): void
+    {
+        Log::info('FiltrationService: handleValve2Ack', ['serial' => $deviceSerial]);
+
+        try {
+            $device = Device::where('serial_number', $deviceSerial)->first();
+            if (!$device) {
+                Log::warning('FiltrationService: Device not found', ['serial' => $deviceSerial]);
+                return;
+            }
+
+            $filtrationProcess = FiltrationProcess::where('device_id', $device->id)
+                ->where('status', 'active')
+                ->first();
+
+            if (!$filtrationProcess) {
+                Log::info('FiltrationService: No active filtration process for valve 2 ack', ['serial' => $deviceSerial]);
+                return;
+            }
+
+            $newState = $filtrationProcess->valve_2_state ? 0 : 1;
+            $filtrationProcess->update(['valve_2_state' => (bool)$newState]);
+            $this->publishValve2State($deviceSerial, $newState);
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: handleValve2Ack failed', [
+                'serial' => $deviceSerial,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    /**
      * Handle restart pump acknowledgment
      * Restart from Stage 2 (re-run stages 2-4)
      */
@@ -729,6 +764,60 @@ class FiltrationService
     }
 
     /**
+     * Publish Start Process command (OPEN to pump/3). On ack=1, handlePump3Ack runs and publishes stage state.
+     */
+    public function publishStartProcessCommand(string $deviceSerial): void
+    {
+        $this->publishCommand("mfc/{$deviceSerial}/pump/3", 'OPEN');
+        Log::info('FiltrationService: Published start process command', ['serial' => $deviceSerial]);
+    }
+
+    /**
+     * Publish Open Valve 1 command. On ack=1, handleValve1Ack runs and publishes valve 1 state.
+     */
+    public function publishOpenValve1Command(string $deviceSerial): void
+    {
+        $this->publishCommand("mfc/{$deviceSerial}/valve/1", 'OPEN');
+        Log::info('FiltrationService: Published open valve 1 command', ['serial' => $deviceSerial]);
+    }
+
+    /**
+     * Publish Close Valve 1 command. On ack=1, handleValve1Ack runs and publishes valve 1 state.
+     */
+    public function publishCloseValve1Command(string $deviceSerial): void
+    {
+        $this->publishCommand("mfc/{$deviceSerial}/valve/1", 'CLOSE');
+        Log::info('FiltrationService: Published close valve 1 command', ['serial' => $deviceSerial]);
+    }
+
+    /**
+     * Publish Open Drain Valve command (valve/2). On ack=1, handleValve2Ack runs and publishes valve 2 state.
+     */
+    public function publishOpenDrainValveCommand(string $deviceSerial): void
+    {
+        $this->publishCommand("mfc_fallback/{$deviceSerial}/valve/2", 'OPEN');
+        Log::info('FiltrationService: Published open drain valve command', ['serial' => $deviceSerial]);
+    }
+
+    /**
+     * Publish Close Drain Valve command (valve/2). On ack=1, handleValve2Ack runs and publishes valve 2 state.
+     */
+    public function publishCloseDrainValveCommand(string $deviceSerial): void
+    {
+        $this->publishCommand("mfc_fallback/{$deviceSerial}/valve/2", 'CLOSE');
+        Log::info('FiltrationService: Published close drain valve command', ['serial' => $deviceSerial]);
+    }
+
+    /**
+     * Publish Restart command (OPEN to reservoir pump/1). On ack=1, handleRestartPumpAck runs and publishes stage states.
+     */
+    public function publishRestartCommand(string $deviceSerial): void
+    {
+        $this->publishCommand("reservoir_fallback/{$deviceSerial}/pump/1", 'OPEN');
+        Log::info('FiltrationService: Published restart command', ['serial' => $deviceSerial]);
+    }
+
+    /**
      * Publish valve 1 state so frontend can sync UI (e.g. when only ack received, no state from IoT)
      */
     public function publishValve1State(string $deviceSerial, int $stateValue): void
@@ -736,6 +825,19 @@ class FiltrationService
         $topic = "mfc/{$deviceSerial}/valve/1/state";
         $this->mqttService->publish($topic, (string)$stateValue, 1);
         Log::info('FiltrationService: Published valve 1 state', [
+            'topic' => $topic,
+            'state' => $stateValue
+        ]);
+    }
+
+    /**
+     * Publish valve 2 (drain) state so frontend can sync UI when ack received.
+     */
+    public function publishValve2State(string $deviceSerial, int $stateValue): void
+    {
+        $topic = "mfc_fallback/{$deviceSerial}/valve/2/state";
+        $this->mqttService->publish($topic, (string)$stateValue, 1);
+        Log::info('FiltrationService: Published valve 2 state', [
             'topic' => $topic,
             'state' => $stateValue
         ]);

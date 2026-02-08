@@ -234,6 +234,18 @@ class MqttListen extends Command
             return;
         }
 
+        // Parse valve/2 ack (drain valve): when ack=1, update state and publish so frontend stays in sync
+        if (preg_match('#^mfc_fallback/([^/]+)/valve/2/ack$#', $topic, $matches)) {
+            $serial = $matches[1];
+            if ($value !== 1) {
+                $this->warn("⚠ Valve 2 (drain) ack=0 for device {$serial} (command did not execute, skipping)");
+                return;
+            }
+            $this->info("✓ Valve 2 (drain) ack received for device {$serial}");
+            $this->filtrationService->handleValve2Ack($serial);
+            return;
+        }
+
         // Parse valve/2 state (drain valve)
         if (preg_match('#^mfc_fallback/([^/]+)/valve/2/state$#', $topic, $matches)) {
             $serial = $matches[1];
