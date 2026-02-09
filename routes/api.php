@@ -146,6 +146,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::post('v1/hydroponic-yields/{setup}/store', [HydroponicYieldController::class, 'storeYield']);
 
     Route::get('v1/tips-suggestion', [TipsController::class, 'generateTips']);
+    Route::post('v1/tips/rag-insights', [TipsController::class, 'generateRagInsights']);
 
     Route::get('v1/help-center', [HelpCenterController::class, 'index']);
 
