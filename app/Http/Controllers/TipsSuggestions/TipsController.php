@@ -7,10 +7,16 @@ use App\Models\SensorReading;
 use App\Models\SensorSystem;
 use App\Services\GeminiApiService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 
 class TipsController extends Controller
 {
+    protected GeminiApiService $geminiService;
+
+    public function __construct(GeminiApiService $geminiService)
+    {
+        $this->geminiService = $geminiService;
+    }
+
     public function generateTips(Request $request)
     {
         $user = $request->user();
@@ -114,42 +120,18 @@ No markdown, no extra explanations, make the heading 2-3 words only, and in tips
 PROMPT;
 
 
-        $response = Http::withHeaders([
-            'Content-Type' => 'application/json',
-            'x-goog-api-key' => env('GEMINI_API_KEY'),
-        ])->timeout(90)
-            ->retry(3, 2000)
-            ->post('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', [
-                'contents' => [[
-                    'parts' => [['text' => $prompt]],
-                ]],
-            ]);
+        $result = $this->geminiService->generateContent($prompt);
 
-        if ($response->failed()) {
+        if (!$result['success']) {
+            $statusCode = $result['status'] ?? 500;
             return response()->json([
-                'error' => 'Gemini API request failed',
-                'details' => $response->json(),
-                'status' => $response->status()
-            ], $response->status());
+                'error' => $result['error'],
+                'details' => $result['details'] ?? null,
+                'raw_output' => $result['raw_output'] ?? null
+            ], $statusCode);
         }
 
-
-        $data = $response->json();
-        $output = $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
-
-        if (!$output) {
-            return response()->json(['error' => 'No text generated from Gemini.'], 500);
-        }
-
-        $cleanOutput = preg_replace('/^```(json)?\s*|\s*```$/m', '', trim($output));
-        $decoded = json_decode($cleanOutput, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            return response()->json([
-                'raw_output' => $output,
-                'error' => 'Invalid JSON structure detected'
-            ]);
-        }
+        $decoded = $result['data'];
 
         // Load sensor system relationship for additional context
         $latestReading->load('sensorSystem');
