@@ -653,32 +653,54 @@ class FiltrationService
                 }
             }
 
-            // Only consider clean_water AI classification from the last 2 minutes (sensor publishes every 10s; no stale DB reads)
+            // Evaluate clean_water AI classification across the Stage 4 window.
             $cleanWaterSystem = SensorSystem::where('device_id', $device->id)
                 ->where('system_type', 'clean_water')
                 ->first();
 
-            $latestReading = null;
-            if ($cleanWaterSystem) {
-                $realtimeCutoff = now()->subMinutes(2);
-                $latestReading = SensorReading::where('sensor_system_id', $cleanWaterSystem->id)
-                    ->whereNotNull('ai_classification')
-                    ->where('reading_time', '>=', $realtimeCutoff)
-                    ->orderBy('reading_time', 'desc')
-                    ->first();
+            $stage4 = TreatmentStage::where('treatment_id', $filtrationProcess->treatment_report_id)
+                ->where('stage_order', 4)
+                ->first();
+
+            $stage4StartedAt = $stage4?->started_at;
+            if (!$stage4StartedAt) {
+                // Fallback to a reasonable window if stage start time is missing for any reason.
+                $stage4StartedAt = now()->subMinutes(30);
+                Log::warning('FiltrationService: Stage 4 started_at missing; using fallback window', [
+                    'filtration_process_id' => $filtrationProcessId,
+                    'fallback_started_at' => $stage4StartedAt,
+                ]);
             }
 
-            // Restart only when realtime publish in last 2 min has ai_classification "bad" (if no publish, we pass)
-            if ($latestReading && $latestReading->ai_classification === 'bad') {
-                Log::info('FiltrationService: AI classification bad, publishing restart notification', [
+            $goodCount = 0;
+            $badCount = 0;
+
+            if ($cleanWaterSystem) {
+                $counts = SensorReading::where('sensor_system_id', $cleanWaterSystem->id)
+                    ->whereNotNull('ai_classification')
+                    ->where('reading_time', '>=', $stage4StartedAt)
+                    ->where('reading_time', '<=', now())
+                    ->select('ai_classification', DB::raw('COUNT(*) as cnt'))
+                    ->groupBy('ai_classification')
+                    ->pluck('cnt', 'ai_classification');
+
+                $goodCount = (int)($counts['good'] ?? 0);
+                $badCount = (int)($counts['bad'] ?? 0);
+            }
+
+            $total = $goodCount + $badCount;
+
+            // Fail/restart Stage 4 only when bad classifications outnumber good classifications.
+            // If there is no data in the window, treat as passed (keeps current behavior).
+            if ($total > 0 && $badCount > $goodCount) {
+                Log::info('FiltrationService: Stage 4 AI classification majority bad, publishing restart notification', [
                     'filtration_process_id' => $filtrationProcessId,
-                    'classification' => $latestReading->ai_classification
+                    'good_count' => $goodCount,
+                    'bad_count' => $badCount,
+                    'stage_4_started_at' => $stage4StartedAt,
                 ]);
 
                 // Update existing Stage 4 to failed only (do not create new rows)
-                $stage4 = TreatmentStage::where('treatment_id', $filtrationProcess->treatment_report_id)
-                    ->where('stage_order', 4)
-                    ->first();
                 if ($stage4) {
                     $stage4->update([
                         'status' => 'failed',
@@ -691,19 +713,14 @@ class FiltrationService
                 return;
             }
 
-            // Otherwise: pass Stage 4 (no data, or classification is "good" or anything else)
-            if (!$latestReading) {
-                Log::info('FiltrationService: No AI classification data for Stage 4, treating as passed', [
-                    'filtration_process_id' => $filtrationProcessId,
-                    'device_id' => $device->id
-                ]);
-            } else {
-                Log::info('FiltrationService: AI classification', [
-                    'filtration_process_id' => $filtrationProcessId,
-                    'classification' => $latestReading->ai_classification,
-                    'confidence' => $latestReading->confidence
-                ]);
-            }
+            // Otherwise: pass Stage 4 (no data, or good >= bad)
+            Log::info('FiltrationService: Stage 4 AI classification summary (treating as passed)', [
+                'filtration_process_id' => $filtrationProcessId,
+                'good_count' => $goodCount,
+                'bad_count' => $badCount,
+                'total' => $total,
+                'stage_4_started_at' => $stage4StartedAt,
+            ]);
 
             // Complete Stage 4 and mark treatment as success
             DB::transaction(function () use ($filtrationProcess, $device) {
