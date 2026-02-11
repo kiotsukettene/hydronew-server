@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('filtration_processes', function (Blueprint $table) {
             $table->bigInteger('id', true);
-            $table->bigInteger('device_id')->index('device_id');
+            $table->bigInteger('device_id');
             $table->bigInteger('treatment_report_id')->index('treatment_report_id');
             $table->enum('status', ['active', 'completed', 'failed', 'restarting'])->default('active');
             $table->boolean('pump_3_state')->default(false);
