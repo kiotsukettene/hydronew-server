@@ -9,6 +9,7 @@ class RAGInsightsService
 {
     private GeminiApiService $geminiService;
     private VectorStoreService $vectorStore;
+    private const MAX_GENERATION_ATTEMPTS = 4;
 
     public function __construct(GeminiApiService $geminiService, VectorStoreService $vectorStore)
     {
@@ -30,13 +31,19 @@ class RAGInsightsService
         ?int $deviceId = null
     ): array {
         try {
+            $missingSensors = $this->getMissingSensors($currentReading);
+            $warnings = $this->buildWarnings($currentReading, $systemType, $missingSensors);
+            $statuses = $this->computeStatuses($currentReading, $systemType, $missingSensors);
+
             // Step 1: Build pattern summary text from current reading
             $currentPatternText = $this->buildPatternText($currentReading, $systemType);
 
             Log::info('RAG: Building insights', [
                 'system_type' => $systemType,
                 'device_id' => $deviceId,
-                'pattern_text' => $currentPatternText
+                'pattern_text' => $currentPatternText,
+                'missing_sensors' => $missingSensors,
+                'statuses' => $statuses,
             ]);
 
             // Step 2: Generate embedding for current state
@@ -68,21 +75,59 @@ class RAGInsightsService
             $augmentedPrompt = $this->buildAugmentedPrompt(
                 $currentReading,
                 $systemType,
-                $retrievedPatterns
+                $retrievedPatterns,
+                $missingSensors,
+                $statuses,
+                $warnings
             );
 
-            // Step 5: Call Gemini generation API
-            $generationResult = $this->geminiService->generateContent($augmentedPrompt);
+            // Step 5: Call Gemini generation API with strict validation + retries
+            $attempt = 0;
+            $generationResult = null;
+            $validationErrors = [];
 
-            if (!$generationResult['success']) {
-                Log::error('RAG: Failed to generate insights', [
-                    'error' => $generationResult['error'] ?? 'Unknown error'
+            $lastRawOutput = null;
+            while ($attempt < self::MAX_GENERATION_ATTEMPTS) {
+                $attempt++;
+                $generationResult = $this->geminiService->generateContent($augmentedPrompt);
+
+                if (!$generationResult['success']) {
+                    $validationErrors = ['generation_failed: ' . ($generationResult['error'] ?? 'unknown')];
+                    $lastRawOutput = $generationResult['raw_output'] ?? null;
+                    // If generation completely failed, don't retry
+                    if (empty($generationResult['raw_output'])) {
+                        break;
+                    }
+                    continue;
+                }
+
+                $lastRawOutput = $generationResult['raw_output'] ?? null;
+                $candidate = $generationResult['data'] ?? null;
+                $validationErrors = $this->validateInsightsJson($candidate, $missingSensors);
+                if (empty($validationErrors)) {
+                    break;
+                }
+
+                // Tighten prompt on retry with concrete errors
+                $augmentedPrompt .= "\n\nRETRY_NOTE: Fix these validation errors and output ONLY valid JSON: "
+                    . implode('; ', $validationErrors) . "\n";
+            }
+
+            if (!$generationResult || !$generationResult['success'] || !empty($validationErrors)) {
+                Log::error('RAG: Failed to produce valid insights after retries', [
+                    'attempts' => $attempt,
+                    'validation_errors' => $validationErrors,
+                    'generation_result' => $generationResult,
+                    'raw_output' => $lastRawOutput,
                 ]);
-                
+
                 return [
                     'success' => false,
-                    'error' => 'Failed to generate insights',
-                    'details' => $generationResult
+                    'error' => 'Failed to generate valid insights',
+                    'validation_errors' => $validationErrors,
+                    'attempts' => $attempt,
+                    'raw_output' => $lastRawOutput,
+                    'generation_error' => $generationResult['error'] ?? null,
                 ];
             }
 
@@ -91,6 +136,10 @@ class RAGInsightsService
                 'success' => true,
                 'insights' => $generationResult['data'],
                 'retrieved_context' => $retrievedPatterns,
+                'evidence' => $generationResult['data']['evidence'] ?? [],
+                'warnings' => $warnings,
+                'statuses' => $statuses,
+                'missing_sensors' => $missingSensors,
                 'current_reading' => [
                     'ph' => $currentReading->ph,
                     'tds' => $currentReading->tds,
@@ -129,10 +178,14 @@ class RAGInsightsService
         $systemLabel = ucfirst(str_replace('_', ' ', $systemType));
         
         $text = "{$systemLabel}: ";
-        $text .= "pH {$reading->ph}, ";
-        $text .= "TDS {$reading->tds} ppm, ";
-        $text .= "turbidity {$reading->turbidity} NTU, ";
-        $text .= "EC {$reading->ec} mS/cm";
+        $text .= "pH " . ($reading->ph ?? 'unavailable') . ", ";
+        $text .= "TDS " . ($reading->tds ?? 'unavailable') . " ppm, ";
+        $text .= "turbidity " . ($reading->turbidity ?? 'unavailable') . " NTU";
+
+        // Only include EC if present (also do not include mS/cm)
+        if (!is_null($reading->ec)) {
+            $text .= ", EC {$reading->ec}";
+        }
 
         if ($reading->ai_classification) {
             $text .= ", classified as {$reading->ai_classification}";
@@ -160,20 +213,52 @@ class RAGInsightsService
     private function buildAugmentedPrompt(
         SensorReading $currentReading,
         string $systemType,
-        array $retrievedPatterns
+        array $retrievedPatterns,
+        array $missingSensors,
+        array $statuses,
+        array $warnings
     ): string {
         $systemLabel = ucfirst(str_replace('_', ' ', $systemType));
+
+        $missingLine = empty($missingSensors) ? 'None' : implode(', ', $missingSensors);
+        $noMention = [];
+        if (in_array('ec', $missingSensors, true)) {
+            $noMention[] = 'EC';
+        }
+        if (in_array('tds', $missingSensors, true)) {
+            $noMention[] = 'TDS';
+        }
+        $noMentionLine = empty($noMention) ? 'None' : implode(', ', $noMention);
         
         $prompt = <<<PROMPT
 You are an expert in hydroponics and water quality management for sustainable farming.
 Your job is to give **simple, friendly, and actionable advice** based on current sensor readings and similar historical patterns.
 
+CRITICAL OUTPUT RULES (must follow exactly):
+- Output ONLY valid JSON (no markdown).
+- Do NOT use the word "plant" or "plants" anywhere; say "lettuce" instead.
+- Do NOT mention "mS/cm" or "calibration".
+- Do NOT mention "EC" if EC is missing.
+- Each tip must be exactly one sentence.
+- Exactly 3 bullet_points objects.
+- Each bullet_points.tips must be an array of exactly 3 strings.
+- Headings must be 2-3 words only.
+
 CURRENT WATER QUALITY READINGS ({$systemLabel}):
 - pH: {$currentReading->ph}
 - TDS: {$currentReading->tds} ppm
 - Turbidity: {$currentReading->turbidity} NTU
-- EC: {$currentReading->ec} mS/cm
 - Water Level: {$currentReading->water_level}
+
+AUTHORITATIVE STATUS (do not contradict these):
+- cleanliness_status: {$statuses['cleanliness_status']}
+- nutrient_solution_status: {$statuses['nutrient_solution_status']}
+
+WARNINGS (copy into JSON warnings exactly, or [] if none):
+{$this->formatWarningsForPrompt($warnings)}
+
+MISSING SENSORS: {$missingLine}
+DO NOT MENTION: {$noMentionLine}
 PROMPT;
 
         if ($currentReading->ai_classification) {
@@ -193,7 +278,7 @@ PROMPT;
                 $period = date('M d', strtotime($pattern['period_start'])) . ' - ' . date('M d', strtotime($pattern['period_end']));
                 $metadata = $pattern['metadata'];
                 
-                $prompt .= "\n{$num}. {$period}:\n";
+                $prompt .= "\n{$num}. Context ID {$pattern['id']} ({$period}):\n";
                 $prompt .= "   {$pattern['pattern_text']}\n";
                 
                 if (isset($metadata['avg_ph'])) {
@@ -204,6 +289,10 @@ PROMPT;
                     $goodPct = round($metadata['classification_good_pct']);
                     $badPct = round($metadata['classification_bad_pct']);
                     $prompt .= "   Classification: {$goodPct}% good, {$badPct}% bad\n";
+                }
+
+                if (!empty($metadata['missing_fields'])) {
+                    $prompt .= "   Missing fields: " . implode(', ', $metadata['missing_fields']) . "\n";
                 }
             }
         }
@@ -226,6 +315,8 @@ Format the response as **valid JSON** with:
   "category": "string",
   "title": "string",
   "description": "string",
+  "warnings": ["string"],
+  "evidence": [{"context_id": 123, "used_for": "string"}],
   "bullet_points": [
       {
         "heading": "string (2-3 words)",
@@ -234,10 +325,157 @@ Format the response as **valid JSON** with:
   ]
 }
 
-No markdown, no extra explanations - just valid JSON with 3 tips per heading.
+IMPORTANT:
+- warnings must exactly match the WARNINGS above (or [] if none)
+- evidence.context_id must come from the Context ID numbers shown above
+- bullet_points must have exactly 3 objects
+- tips arrays must have exactly 3 strings each
+
+No markdown, no extra explanations - just valid JSON.
 PROMPT;
 
         return $prompt;
+    }
+
+    private function formatWarningsForPrompt(array $warnings): string
+    {
+        if (empty($warnings)) {
+            return "- None";
+        }
+        return "- " . implode("\n- ", $warnings);
+    }
+
+    private function getMissingSensors(SensorReading $reading): array
+    {
+        $missing = [];
+        foreach (['ph', 'tds', 'turbidity', 'ec', 'water_level'] as $field) {
+            if (is_null($reading->{$field})) {
+                $missing[] = $field;
+            }
+        }
+        return $missing;
+    }
+
+    private function buildWarnings(SensorReading $reading, string $systemType, array $missingSensors): array
+    {
+        $warnings = [];
+        if (in_array('ec', $missingSensors, true)) {
+            $warnings[] = 'EC missing — nutrient strength cannot be verified.';
+        }
+        if (in_array('tds', $missingSensors, true)) {
+            $warnings[] = 'TDS missing — nutrient strength cannot be verified.';
+        }
+        if ($systemType === 'hydroponics_water' && !is_null($reading->tds) && $reading->tds < 100) {
+            $warnings[] = 'TDS is very low — nutrient solution may be too weak for lettuce.';
+        }
+        return $warnings;
+    }
+
+    private function computeStatuses(SensorReading $reading, string $systemType, array $missingSensors): array
+    {
+        $cleanliness = 'unknown';
+        if (!in_array('turbidity', $missingSensors, true) && !is_null($reading->turbidity)) {
+            $cleanliness = ($reading->turbidity <= 5) ? 'clear' : 'cloudy';
+        }
+
+        $nutrient = 'unknown';
+        if ($systemType === 'hydroponics_water') {
+            if (in_array('tds', $missingSensors, true)) {
+                $nutrient = 'cannot_verify';
+            } else {
+                $nutrient = ($reading->tds >= 560 && $reading->tds <= 840) ? 'ready' : 'not_ready';
+            }
+        } else {
+            $nutrient = 'not_applicable';
+        }
+
+        return [
+            'cleanliness_status' => $cleanliness,
+            'nutrient_solution_status' => $nutrient,
+        ];
+    }
+
+    private function validateInsightsJson($json, array $missingSensors): array
+    {
+        $errors = [];
+        if (!is_array($json)) {
+            return ['not_json_object'];
+        }
+
+        foreach (['category', 'title', 'description', 'bullet_points', 'warnings', 'evidence'] as $key) {
+            if (!array_key_exists($key, $json)) {
+                $errors[] = "missing_key:{$key}";
+            }
+        }
+
+        if (isset($json['bullet_points']) && (!is_array($json['bullet_points']) || count($json['bullet_points']) !== 3)) {
+            $errors[] = 'bullet_points_must_be_3';
+        }
+
+        if (isset($json['bullet_points']) && is_array($json['bullet_points'])) {
+            foreach ($json['bullet_points'] as $i => $bp) {
+                if (!is_array($bp) || !isset($bp['heading'], $bp['tips'])) {
+                    $errors[] = "bullet_points_invalid_at:{$i}";
+                    continue;
+                }
+                if (!is_array($bp['tips']) || count($bp['tips']) !== 3) {
+                    $errors[] = "tips_must_be_3_at:{$i}";
+                }
+                foreach (($bp['tips'] ?? []) as $j => $tip) {
+                    if (!is_string($tip)) {
+                        $errors[] = "tip_not_string_at:{$i}:{$j}";
+                        continue;
+                    }
+                    // Check for multiple sentences: replace decimal numbers first, then count sentence endings
+                    $tipWithoutDecimals = preg_replace('/\d+\.\d+/', 'NUM', $tip);
+                    // Count sentence-ending punctuation (period/question/exclamation followed by space+capital or at end)
+                    $sentenceEndings = preg_match_all('/[.!?](?:\s+[A-Z]|$)/', $tipWithoutDecimals);
+                    if ($sentenceEndings > 1) {
+                        $errors[] = "tip_not_one_sentence_at:{$i}:{$j}";
+                    }
+                }
+            }
+        }
+
+        $flatten = json_encode($json) ?: '';
+        $lower = strtolower($flatten);
+        if (str_contains($lower, ' plants') || str_contains($lower, ' plant')) {
+            $errors[] = 'banned_word:plant';
+        }
+        if (str_contains($lower, 'm/s') || str_contains($lower, 'ms/cm') || str_contains($lower, 'mS/cm')) {
+            $errors[] = 'banned_unit:ms_per_cm';
+        }
+        if (str_contains($lower, 'calibration')) {
+            $errors[] = 'banned_word:calibration';
+        }
+        // Check for EC mention only if EC sensor is missing
+        // Use word boundaries to avoid matching "excellent", "effective", etc.
+        if (in_array('ec', $missingSensors, true)) {
+            // Check in the actual text content (description, tips, etc.)
+            $textContent = ($json['description'] ?? '') . ' ' . 
+                          implode(' ', array_column($json['bullet_points'] ?? [], 'heading')) . ' ' .
+                          implode(' ', array_merge(...array_column($json['bullet_points'] ?? [], 'tips')));
+            // Match "EC" as standalone word (not inside "excellent", "effective", etc.)
+            if (preg_match('/\bEC\b/i', $textContent)) {
+                $errors[] = 'mentions_ec_but_missing';
+            }
+        }
+
+        if (isset($json['warnings']) && !is_array($json['warnings'])) {
+            $errors[] = 'warnings_not_array';
+        }
+        if (isset($json['evidence']) && !is_array($json['evidence'])) {
+            $errors[] = 'evidence_not_array';
+        }
+        if (isset($json['evidence']) && is_array($json['evidence'])) {
+            foreach ($json['evidence'] as $i => $ev) {
+                if (!is_array($ev) || !isset($ev['context_id'], $ev['used_for'])) {
+                    $errors[] = "evidence_invalid_at:{$i}";
+                }
+            }
+        }
+
+        return array_values(array_unique($errors));
     }
 
     /**

@@ -236,7 +236,9 @@ PROMPT;
             return response()->json([
                 'error' => $result['error'] ?? 'Failed to generate insights',
                 'details' => $result['details'] ?? null,
-                'message' => $result['message'] ?? null
+                'message' => $result['message'] ?? null,
+                'validation_errors' => $result['validation_errors'] ?? null,
+                'raw_output' => $result['raw_output'] ?? null
             ], 500);
         }
 
@@ -247,6 +249,10 @@ PROMPT;
             'device_id' => $latestReading->sensorSystem->device_id ?? null,
             'current_reading' => $result['current_reading'],
             'insights' => $result['insights'],
+            'warnings' => $result['warnings'] ?? [],
+            'statuses' => $result['statuses'] ?? null,
+            'missing_sensors' => $result['missing_sensors'] ?? [],
+            'evidence' => $result['evidence'] ?? [],
             'retrieved_context' => $result['retrieved_context'],
             'note' => $result['note'] ?? 'Insights generated using historical pattern retrieval (RAG)'
         ]);

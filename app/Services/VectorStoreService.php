@@ -17,17 +17,22 @@ class VectorStoreService
     public function store(array $patternData): ?WaterPatternEmbedding
     {
         try {
-            return WaterPatternEmbedding::create([
-                'device_id' => $patternData['device_id'],
-                'system_type' => $patternData['system_type'],
-                'pattern_text' => $patternData['pattern_text'],
-                'embedding' => $patternData['embedding'],
-                'embedding_model' => $patternData['embedding_model'],
-                'embedding_dim' => $patternData['embedding_dim'],
-                'period_start' => $patternData['period_start'],
-                'period_end' => $patternData['period_end'],
-                'metadata' => $patternData['metadata'],
-            ]);
+            // Idempotent write: avoid duplicating the same pattern window
+            return WaterPatternEmbedding::updateOrCreate(
+                [
+                    'device_id' => $patternData['device_id'],
+                    'system_type' => $patternData['system_type'],
+                    'period_start' => $patternData['period_start'],
+                    'period_end' => $patternData['period_end'],
+                ],
+                [
+                    'pattern_text' => $patternData['pattern_text'],
+                    'embedding' => $patternData['embedding'],
+                    'embedding_model' => $patternData['embedding_model'],
+                    'embedding_dim' => $patternData['embedding_dim'],
+                    'metadata' => $patternData['metadata'],
+                ]
+            );
         } catch (\Exception $e) {
             Log::error('VectorStore: Failed to store pattern', [
                 'error' => $e->getMessage(),
@@ -84,10 +89,13 @@ class VectorStoreService
                 
                 // Calculate cosine similarity (dot product of normalized vectors)
                 $similarity = $this->cosineSimilarity($queryEmbedding, $storedEmbedding);
+                $reliability = (float) ($candidate->metadata['reliability_score'] ?? 1.0);
+                $adjusted = $similarity * max(0.0, min(1.0, $reliability));
 
                 $results[] = [
                     'id' => $candidate->id,
                     'similarity_score' => round($similarity, 4),
+                    'adjusted_score' => round($adjusted, 4),
                     'period_start' => $candidate->period_start->toDateTimeString(),
                     'period_end' => $candidate->period_end->toDateTimeString(),
                     'pattern_text' => $candidate->pattern_text,
@@ -96,8 +104,8 @@ class VectorStoreService
                 ];
             }
 
-            // Sort by similarity score (descending) and return top K
-            usort($results, fn($a, $b) => $b['similarity_score'] <=> $a['similarity_score']);
+            // Sort by adjusted score (descending) and return top K
+            usort($results, fn($a, $b) => $b['adjusted_score'] <=> $a['adjusted_score']);
 
             return array_slice($results, 0, $topK);
 

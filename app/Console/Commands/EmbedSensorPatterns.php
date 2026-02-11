@@ -20,7 +20,8 @@ class EmbedSensorPatterns extends Command
     protected $signature = 'embeddings:generate 
                             {--days=30 : Number of days to look back}
                             {--system-type= : Filter by system type (dirty_water, clean_water, hydroponics_water)}
-                            {--device-id= : Filter by device ID}';
+                            {--device-id= : Filter by device ID}
+                            {--min-readings=20 : Minimum readings required per pattern window}';
 
     /**
      * The console command description.
@@ -47,6 +48,7 @@ class EmbedSensorPatterns extends Command
         $days = (int) $this->option('days');
         $systemType = $this->option('system-type');
         $deviceId = $this->option('device-id');
+        $minReadings = (int) $this->option('min-readings');
 
         $this->info("Generating embeddings for sensor patterns...");
         $this->info("Looking back: {$days} days");
@@ -57,6 +59,7 @@ class EmbedSensorPatterns extends Command
         if ($deviceId) {
             $this->info("Device ID filter: {$deviceId}");
         }
+        $this->info("Min readings per pattern: {$minReadings}");
 
         // Get date range
         $endDate = Carbon::now();
@@ -115,7 +118,7 @@ class EmbedSensorPatterns extends Command
                 $totalProcessed++;
 
                 // Aggregate daily statistics
-                $pattern = $this->aggregateDailyPattern($dayReadings, $date, $system);
+                $pattern = $this->aggregateDailyPattern($dayReadings, $date, $system, $minReadings);
 
                 // Generate embedding
                 $embeddingResult = $this->geminiService->generateEmbedding($pattern['pattern_text']);
@@ -186,21 +189,40 @@ class EmbedSensorPatterns extends Command
      * @param SensorSystem $system
      * @return array
      */
-    private function aggregateDailyPattern($readings, string $date, SensorSystem $system): array
+    private function aggregateDailyPattern($readings, string $date, SensorSystem $system, int $minReadings): array
     {
         $count = $readings->count();
+        $reliabilityScore = $minReadings > 0 ? min(1, round($count / $minReadings, 4)) : 1;
+        $lowReliability = $count < $minReadings;
 
         // Calculate averages and ranges
-        $avgPh = round($readings->avg('ph'), 2);
-        $minPh = round($readings->min('ph'), 2);
-        $maxPh = round($readings->max('ph'), 2);
+        $avgPhRaw = $readings->avg('ph');
+        $minPhRaw = $readings->min('ph');
+        $maxPhRaw = $readings->max('ph');
+        $avgPh = is_null($avgPhRaw) ? null : round($avgPhRaw, 2);
+        $minPh = is_null($minPhRaw) ? null : round($minPhRaw, 2);
+        $maxPh = is_null($maxPhRaw) ? null : round($maxPhRaw, 2);
 
-        $avgTds = round($readings->avg('tds'), 2);
-        $minTds = round($readings->min('tds'), 2);
-        $maxTds = round($readings->max('tds'), 2);
+        $avgTdsRaw = $readings->avg('tds');
+        $minTdsRaw = $readings->min('tds');
+        $maxTdsRaw = $readings->max('tds');
+        $avgTds = is_null($avgTdsRaw) ? null : round($avgTdsRaw, 2);
+        $minTds = is_null($minTdsRaw) ? null : round($minTdsRaw, 2);
+        $maxTds = is_null($maxTdsRaw) ? null : round($maxTdsRaw, 2);
 
-        $avgTurbidity = round($readings->avg('turbidity'), 2);
-        $avgEc = round($readings->avg('ec'), 2);
+        $avgTurbidityRaw = $readings->avg('turbidity');
+        $avgEcRaw = $readings->avg('ec');
+        $avgTurbidity = is_null($avgTurbidityRaw) ? null : round($avgTurbidityRaw, 2);
+        $avgEc = is_null($avgEcRaw) ? null : round($avgEcRaw, 2);
+
+        // Missing fields (all-null across the window)
+        $missingFields = [];
+        foreach (['ph', 'tds', 'turbidity', 'ec', 'water_level'] as $field) {
+            $nonNullCount = $readings->whereNotNull($field)->count();
+            if ($nonNullCount === 0) {
+                $missingFields[] = $field;
+            }
+        }
 
         // Classification statistics
         $classifiedReadings = $readings->whereNotNull('ai_classification');
@@ -216,10 +238,10 @@ class EmbedSensorPatterns extends Command
 
         // Count anomalies (out of safe range)
         $anomalyCount = $readings->filter(function ($reading) {
-            $phOutOfRange = $reading->ph < 6.0 || $reading->ph > 8.0;
-            $tdsOutOfRange = $reading->tds < 560 || $reading->tds > 840;
-            $turbidityHigh = $reading->turbidity > 5;
-            $ecOutOfRange = $reading->ec < 1.2 || $reading->ec > 2.5;
+            $phOutOfRange = !is_null($reading->ph) && ($reading->ph < 6.0 || $reading->ph > 8.0);
+            $tdsOutOfRange = !is_null($reading->tds) && ($reading->tds < 560 || $reading->tds > 840);
+            $turbidityHigh = !is_null($reading->turbidity) && ($reading->turbidity > 5);
+            $ecOutOfRange = !is_null($reading->ec) && ($reading->ec < 1.2 || $reading->ec > 2.5);
             
             return $phOutOfRange || $tdsOutOfRange || $turbidityHigh || $ecOutOfRange;
         })->count();
@@ -227,10 +249,13 @@ class EmbedSensorPatterns extends Command
         // Build natural language summary
         $systemLabel = ucfirst(str_replace('_', ' ', $system->system_type));
         $patternText = "{$systemLabel} on {$date}: ";
-        $patternText .= "Average pH {$avgPh} (range {$minPh}-{$maxPh}), ";
-        $patternText .= "TDS {$avgTds} ppm (range {$minTds}-{$maxTds}), ";
-        $patternText .= "turbidity {$avgTurbidity} NTU, ";
-        $patternText .= "EC {$avgEc} mS/cm. ";
+        $patternText .= "Average pH " . ($avgPh ?? 'unavailable') . " (range " . ($minPh ?? 'unavailable') . "-" . ($maxPh ?? 'unavailable') . "), ";
+        $patternText .= "TDS " . ($avgTds ?? 'unavailable') . " ppm (range " . ($minTds ?? 'unavailable') . "-" . ($maxTds ?? 'unavailable') . "), ";
+        $patternText .= "turbidity " . ($avgTurbidity ?? 'unavailable') . " NTU";
+        if (!is_null($avgEc)) {
+            $patternText .= ", EC {$avgEc}";
+        }
+        $patternText .= ". ";
 
         if ($totalClassified > 0) {
             $patternText .= "AI classified {$goodPct}% as good, {$badPct}% as bad";
@@ -251,6 +276,8 @@ class EmbedSensorPatterns extends Command
             'period_end' => Carbon::parse($date)->endOfDay(),
             'metadata' => [
                 'readings_count' => $count,
+                'reliability_score' => $reliabilityScore,
+                'low_reliability' => $lowReliability,
                 'avg_ph' => $avgPh,
                 'min_ph' => $minPh,
                 'max_ph' => $maxPh,
@@ -263,6 +290,7 @@ class EmbedSensorPatterns extends Command
                 'classification_bad_pct' => $badPct,
                 'avg_confidence' => $avgConfidence,
                 'anomaly_count' => $anomalyCount,
+                'missing_fields' => $missingFields,
             ],
         ];
     }
