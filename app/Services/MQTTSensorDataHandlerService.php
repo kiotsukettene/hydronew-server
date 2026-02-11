@@ -13,14 +13,16 @@ use Illuminate\Support\Facades\Log;
 class MQTTSensorDataHandlerService {
     protected MqttService $mqttService;
     protected NotificationService $notificationService;
+    protected FiltrationService $filtrationService;
 
 
 
-    public function __construct(NotificationService $notificationService, MqttService $mqttService)
+    public function __construct(NotificationService $notificationService, MqttService $mqttService, FiltrationService $filtrationService)
     {
         $this->mqttService = $mqttService;
 
         $this->notificationService = $notificationService;
+        $this->filtrationService = $filtrationService;
     }
 
     public function handlePayload(int $deviceId, array $payload): void
@@ -221,6 +223,23 @@ public function handleAIClassificationPayload(array $payload): void
                 'ai_classification' => $aiClassification,
                 'confidence' => $confidence
             ]);
+
+            // 9b. Check filtration auto-valve conditions (only for dirty_water)
+            if ($waterType === 'dirty_water') {
+                try {
+                    $this->filtrationService->checkAutoValveConditions(
+                        $device->id,
+                        $waterType,
+                        $sensors
+                    );
+                } catch (\Exception $e) {
+                    Log::error('Failed to check filtration auto-valve conditions', [
+                        'device_id' => $device->id,
+                        'water_type' => $waterType,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
 
             // 10. Broadcast the data - MUST BE INSIDE THE FOREACH LOOP
             DB::afterCommit(function () use ($sensorReading, $device, $waterType) {
