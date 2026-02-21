@@ -9,7 +9,7 @@ use Illuminate\Http\Client\PendingRequest;
 
 class GeminiApiService
 {
-    private string $apiKey;
+    private ?string $apiKey = null;
     private string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
     private string $model = 'gemini-2.5-flash';
 

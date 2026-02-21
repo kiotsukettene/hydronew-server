@@ -20,13 +20,13 @@ jobs:
           extensions: pdo, pdo_sqlite, sqlite
           coverage: xdebug
 
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
       - name: Copy .env.testing
         run: |
           cp .env.testing.example .env
           php artisan key:generate
-
-      - name: Install Composer dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress
 
       - name: Create SQLite database
         run: |
