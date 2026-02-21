@@ -31,7 +31,7 @@ class RAGInsightsService
         ?int $deviceId = null
     ): array {
         try {
-            $missingSensors = $this->getMissingSensors($currentReading);
+            $missingSensors = $this->getMissingSensors($currentReading, $systemType);
             $warnings = $this->buildWarnings($currentReading, $systemType, $missingSensors);
             $statuses = $this->computeStatuses($currentReading, $systemType, $missingSensors);
 
@@ -179,11 +179,15 @@ class RAGInsightsService
         
         $text = "{$systemLabel}: ";
         $text .= "pH " . ($reading->ph ?? 'unavailable') . ", ";
-        $text .= "TDS " . ($reading->tds ?? 'unavailable') . " ppm, ";
-        $text .= "turbidity " . ($reading->turbidity ?? 'unavailable') . " NTU";
+        $text .= "TDS " . ($reading->tds ?? 'unavailable') . " ppm";
 
-        // Only include EC if present (also do not include mS/cm)
-        if (!is_null($reading->ec)) {
+        // Include turbidity only if NOT hydroponics_water
+        if ($systemType !== 'hydroponics_water') {
+            $text .= ", turbidity " . ($reading->turbidity ?? 'unavailable') . " NTU";
+        }
+
+        // Include EC only if hydroponics_water (skip for clean/dirty water since they have TDS)
+        if ($systemType === 'hydroponics_water' && !is_null($reading->ec)) {
             $text .= ", EC {$reading->ec}";
         }
 
@@ -247,8 +251,21 @@ CRITICAL OUTPUT RULES (must follow exactly):
 CURRENT WATER QUALITY READINGS ({$systemLabel}):
 - pH: {$currentReading->ph}
 - TDS: {$currentReading->tds} ppm
-- Turbidity: {$currentReading->turbidity} NTU
-- Water Level: {$currentReading->water_level}
+PROMPT;
+
+        // Add turbidity only if NOT hydroponics_water
+        if ($systemType !== 'hydroponics_water') {
+            $prompt .= "\n- Turbidity: {$currentReading->turbidity} NTU";
+        }
+
+        // Add EC only if hydroponics_water
+        if ($systemType === 'hydroponics_water' && !in_array('ec', $missingSensors, true)) {
+            $prompt .= "\n- EC: {$currentReading->ec}";
+        }
+
+        $prompt .= "\n- Water Level: {$currentReading->water_level}\n";
+
+        $prompt .= <<<PROMPT
 
 AUTHORITATIVE STATUS (do not contradict these):
 - cleanliness_status: {$statuses['cleanliness_status']}
@@ -345,10 +362,22 @@ PROMPT;
         return "- " . implode("\n- ", $warnings);
     }
 
-    private function getMissingSensors(SensorReading $reading): array
+    private function getMissingSensors(SensorReading $reading, string $systemType = ''): array
     {
         $missing = [];
-        foreach (['ph', 'tds', 'turbidity', 'ec', 'water_level'] as $field) {
+        $requiredFields = ['ph', 'tds', 'turbidity', 'ec', 'water_level'];
+        
+        foreach ($requiredFields as $field) {
+            // Skip turbidity for hydroponics_water
+            if ($field === 'turbidity' && $systemType === 'hydroponics_water') {
+                continue;
+            }
+            
+            // Skip EC for clean_water and dirty_water (they have TDS already)
+            if ($field === 'ec' && in_array($systemType, ['clean_water', 'dirty_water'])) {
+                continue;
+            }
+            
             if (is_null($reading->{$field})) {
                 $missing[] = $field;
             }
@@ -374,7 +403,11 @@ PROMPT;
     private function computeStatuses(SensorReading $reading, string $systemType, array $missingSensors): array
     {
         $cleanliness = 'unknown';
-        if (!in_array('turbidity', $missingSensors, true) && !is_null($reading->turbidity)) {
+        
+        // For hydroponics_water, turbidity is not required, so skip cleanliness check
+        if ($systemType === 'hydroponics_water') {
+            $cleanliness = 'not_applicable';
+        } elseif (!in_array('turbidity', $missingSensors, true) && !is_null($reading->turbidity)) {
             $cleanliness = ($reading->turbidity <= 5) ? 'clear' : 'cloudy';
         }
 
@@ -479,6 +512,216 @@ PROMPT;
     }
 
     /**
+     * Generate smart recommendations for clean water only
+     * Direct, actionable recommendations without RAG
+     *
+     * @param SensorReading $currentReading The current sensor reading
+     * @return array Returns recommendations with severity levels
+     */
+    public function generateSmartRecommendations(SensorReading $currentReading): array
+    {
+        try {
+            $prompt = $this->buildSmartRecommendationsPrompt($currentReading);
+
+            Log::info('Smart Recommendations: Generating for clean water', [
+                'ph' => $currentReading->ph,
+                'tds' => $currentReading->tds,
+                'turbidity' => $currentReading->turbidity,
+                'water_level' => $currentReading->water_level,
+            ]);
+
+            $attempt = 0;
+            $generationResult = null;
+            $validationErrors = [];
+            $lastRawOutput = null;
+
+            while ($attempt < self::MAX_GENERATION_ATTEMPTS) {
+                $attempt++;
+                $generationResult = $this->geminiService->generateContent($prompt);
+
+                if (!$generationResult['success']) {
+                    $validationErrors = ['generation_failed: ' . ($generationResult['error'] ?? 'unknown')];
+                    $lastRawOutput = $generationResult['raw_output'] ?? null;
+                    if (empty($generationResult['raw_output'])) {
+                        break;
+                    }
+                    continue;
+                }
+
+                $lastRawOutput = $generationResult['raw_output'] ?? null;
+                $candidate = $generationResult['data'] ?? null;
+                $validationErrors = $this->validateRecommendationsJson($candidate);
+                
+                if (empty($validationErrors)) {
+                    break;
+                }
+
+                $prompt .= "\n\nRETRY_NOTE: Fix these validation errors and output ONLY valid JSON: "
+                    . implode('; ', $validationErrors) . "\n";
+            }
+
+            if (!$generationResult || !$generationResult['success'] || !empty($validationErrors)) {
+                Log::error('Smart Recommendations: Failed after retries', [
+                    'attempts' => $attempt,
+                    'validation_errors' => $validationErrors,
+                    'raw_output' => $lastRawOutput,
+                ]);
+
+                return [
+                    'success' => false,
+                    'error' => 'Failed to generate valid recommendations',
+                    'validation_errors' => $validationErrors,
+                    'attempts' => $attempt,
+                    'raw_output' => $lastRawOutput,
+                ];
+            }
+
+            return [
+                'success' => true,
+                'recommendations' => $generationResult['data']['recommendations'] ?? [],
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Smart Recommendations: Exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return [
+                'success' => false,
+                'error' => 'Exception during recommendation generation',
+                'message' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Build prompt for smart recommendations
+     *
+     * @param SensorReading $reading
+     * @return string
+     */
+    private function buildSmartRecommendationsPrompt(SensorReading $reading): string
+    {
+        $prompt = <<<PROMPT
+You are providing DIRECT, ACTIONABLE water quality recommendations for clean water before it enters a kratky hydroponic system for lettuce.
+
+Current Clean Water Readings:
+- pH: {$reading->ph}
+- TDS: {$reading->tds} ppm
+- Turbidity: {$reading->turbidity} NTU
+- Water Level: {$reading->water_level}%
+
+Analyze the readings and provide 1-3 CONCISE recommendations with specific actions.
+
+CRITICAL RULES:
+- Output ONLY valid JSON (no markdown)
+- Be DIRECT and PRESCRIPTIVE (e.g., "Add 5ml of pH Up solution")
+- Use "warning" for minor issues, "critical" for plant-threatening issues, "info" for optimal conditions
+- NO explanations, just specific actions
+- Max 3 recommendations
+- Each recommendation must have: type, issue, action, priority
+- Priority 1 is highest (most urgent), 2 is medium, 3 is lowest
+- Do NOT use the word "plant" or "plants"; say "lettuce" instead
+
+WATER QUALITY GUIDELINES:
+- Optimal pH for lettuce: 5.5-6.5
+- Optimal TDS: 560-840 ppm (nutrient solution strength)
+- Optimal Turbidity: < 5 NTU (clean water)
+- Water Level: > 50% is good, < 30% needs refilling
+
+Output ONLY valid JSON:
+{
+  "recommendations": [
+    {
+      "type": "warning|info|critical",
+      "issue": "short problem statement",
+      "action": "specific action with measurements",
+      "priority": 1
+    }
+  ]
+}
+
+Examples of good recommendations:
+- {"type": "warning", "issue": "pH is too low", "action": "Add 5ml of pH Up solution", "priority": 1}
+- {"type": "critical", "issue": "Water level is critically low", "action": "Refill tank to at least 70%", "priority": 1}
+- {"type": "info", "issue": "Water quality is optimal", "action": "Continue monitoring daily", "priority": 3}
+
+No markdown, no extra explanations - just valid JSON.
+PROMPT;
+
+        return $prompt;
+    }
+
+    /**
+     * Validate smart recommendations JSON structure
+     *
+     * @param mixed $json
+     * @return array List of validation errors
+     */
+    private function validateRecommendationsJson($json): array
+    {
+        $errors = [];
+        
+        if (!is_array($json)) {
+            return ['not_json_object'];
+        }
+
+        if (!array_key_exists('recommendations', $json)) {
+            return ['missing_key:recommendations'];
+        }
+
+        if (!is_array($json['recommendations'])) {
+            return ['recommendations_not_array'];
+        }
+
+        if (count($json['recommendations']) > 3) {
+            $errors[] = 'max_3_recommendations';
+        }
+
+        if (count($json['recommendations']) === 0) {
+            $errors[] = 'at_least_1_recommendation';
+        }
+
+        foreach ($json['recommendations'] as $i => $rec) {
+            if (!is_array($rec)) {
+                $errors[] = "recommendation_not_object_at:{$i}";
+                continue;
+            }
+
+            foreach (['type', 'issue', 'action', 'priority'] as $field) {
+                if (!array_key_exists($field, $rec)) {
+                    $errors[] = "missing_field:{$field}_at:{$i}";
+                }
+            }
+
+            if (isset($rec['type']) && !in_array($rec['type'], ['warning', 'info', 'critical'])) {
+                $errors[] = "invalid_type_at:{$i}";
+            }
+
+            if (isset($rec['priority']) && (!is_int($rec['priority']) || $rec['priority'] < 1)) {
+                $errors[] = "invalid_priority_at:{$i}";
+            }
+
+            if (isset($rec['issue']) && !is_string($rec['issue'])) {
+                $errors[] = "issue_not_string_at:{$i}";
+            }
+
+            if (isset($rec['action']) && !is_string($rec['action'])) {
+                $errors[] = "action_not_string_at:{$i}";
+            }
+        }
+
+        $flatten = json_encode($json) ?: '';
+        $lower = strtolower($flatten);
+        if (str_contains($lower, ' plants') || str_contains($lower, ' plant')) {
+            $errors[] = 'banned_word:plant';
+        }
+
+        return array_values(array_unique($errors));
+    }
+
+    /**
      * Generate fallback insights without RAG (when embedding fails)
      *
      * @param SensorReading $currentReading
@@ -489,15 +732,25 @@ PROMPT;
     {
         $systemLabel = ucfirst(str_replace('_', ' ', $systemType));
         
+        $readingsText = "- pH: {$currentReading->ph}\n- TDS: {$currentReading->tds} ppm";
+        
+        // Add turbidity only if NOT hydroponics_water
+        if ($systemType !== 'hydroponics_water') {
+            $readingsText .= "\n- Turbidity: {$currentReading->turbidity} NTU";
+        }
+        
+        // Add EC only if hydroponics_water
+        if ($systemType === 'hydroponics_water' && !is_null($currentReading->ec)) {
+            $readingsText .= "\n- EC: {$currentReading->ec}";
+        }
+        
+        $readingsText .= "\n- Water Level: {$currentReading->water_level}";
+        
         $prompt = <<<PROMPT
 You are an expert in hydroponics and water quality management.
 Provide simple, actionable advice based on these {$systemLabel} readings:
 
-- pH: {$currentReading->ph}
-- TDS: {$currentReading->tds} ppm
-- Turbidity: {$currentReading->turbidity} NTU
-- EC: {$currentReading->ec} mS/cm
-- Water Level: {$currentReading->water_level}
+{$readingsText}
 
 Format as valid JSON:
 {

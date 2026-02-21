@@ -66,7 +66,7 @@ class TipsController extends Controller
         $waterLevel = $latestReading->water_level;
 
 
-        $qualityMsg = $this->evaluateQuality($ph, $tds, $turbidity, $ec);
+        $qualityMsg = $this->evaluateQuality($ph, $tds, $turbidity, $ec, $systemType);
 
 
         $context = [
@@ -76,7 +76,23 @@ class TipsController extends Controller
             'ec' => $ec,
             'water_level' => $waterLevel,
             'status' => $qualityMsg,
+            'system_type' => $systemType,
         ];
+
+        // Build water quality readings text based on system type
+        $readingsText = "- pH: {$ph}\n- TDS: {$tds} ppm";
+        
+        // Add turbidity only if NOT hydroponics_water
+        if ($systemType !== 'hydroponics_water') {
+            $readingsText .= "\n- Turbidity: {$turbidity} NTU";
+        }
+        
+        // Add EC only if hydroponics_water
+        if ($systemType === 'hydroponics_water' && !is_null($ec)) {
+            $readingsText .= "\n- EC: {$ec}";
+        }
+        
+        $readingsText .= "\n- Water Level: {$waterLevel}";
 
         $prompt = <<<PROMPT
 You are an expert in hydroponics and sustainable water reuse, helping small farmers and home growers.
@@ -85,11 +101,7 @@ Your job is to give **simple, friendly, and actionable advice** — not technica
 Here is the user's real-time data from the water quality sensors before they go in the hydroponic system:
 
 Water Quality Readings:
-- pH: {$ph}
-- TDS: {$tds} ppm
-- Turbidity: {$turbidity} NTU
-- EC: {$ec} mS/cm
-- Water Level: {$waterLevel}
+{$readingsText}
 Overall Status: {$qualityMsg}
 
 Write practical, easy-to-follow tips to help the user improve water quality, nutrient balance, and plant health.
@@ -158,19 +170,36 @@ PROMPT;
     }
 
 
-    protected function evaluateQuality($ph, $tds, $turbidity, $ec)
+    protected function evaluateQuality($ph, $tds, $turbidity, $ec, $systemType)
     {
-        if (is_null($ph) || is_null($tds) || is_null($turbidity) || is_null($ec)) {
-            return 'Unknown';
-        }
-
-        $isPhSafe = ($ph >= 6.5 && $ph <= 8.0);
-        $isTdsSafe = ($tds >= 560 && $tds <= 840);
-        $isTurbiditySafe = ($turbidity <= 5);
-        $isEcSafe = ($ec >= 1.2 && $ec <= 2.5);
-
-        if ($isPhSafe && $isTdsSafe && $isTurbiditySafe && $isEcSafe) {
-            return 'Safe for plants';
+        // For hydroponics_water: check pH, TDS, EC (not turbidity)
+        // For clean/dirty water: check pH, TDS, turbidity (not EC since they have TDS)
+        
+        if ($systemType === 'hydroponics_water') {
+            if (is_null($ph) || is_null($tds) || is_null($ec)) {
+                return 'Unknown';
+            }
+            
+            $isPhSafe = ($ph >= 6.5 && $ph <= 8.0);
+            $isTdsSafe = ($tds >= 560 && $tds <= 840);
+            $isEcSafe = ($ec >= 1.2 && $ec <= 2.5);
+            
+            if ($isPhSafe && $isTdsSafe && $isEcSafe) {
+                return 'Safe for plants';
+            }
+        } else {
+            // For clean_water and dirty_water
+            if (is_null($ph) || is_null($tds) || is_null($turbidity)) {
+                return 'Unknown';
+            }
+            
+            $isPhSafe = ($ph >= 6.5 && $ph <= 8.0);
+            $isTdsSafe = ($tds >= 560 && $tds <= 840);
+            $isTurbiditySafe = ($turbidity <= 5);
+            
+            if ($isPhSafe && $isTdsSafe && $isTurbiditySafe) {
+                return 'Safe for plants';
+            }
         }
 
         return 'Unsafe for plants';
@@ -249,12 +278,86 @@ PROMPT;
             'device_id' => $latestReading->sensorSystem->device_id ?? null,
             'current_reading' => $result['current_reading'],
             'insights' => $result['insights'],
-            'warnings' => $result['warnings'] ?? [],
             'statuses' => $result['statuses'] ?? null,
             'missing_sensors' => $result['missing_sensors'] ?? [],
             'evidence' => $result['evidence'] ?? [],
             'retrieved_context' => $result['retrieved_context'],
             'note' => $result['note'] ?? 'Insights generated using historical pattern retrieval (RAG)'
+        ]);
+    }
+
+    /**
+     * Generate smart recommendations for clean water only
+     */
+    public function generateSmartRecommendations(Request $request)
+    {
+        // Get device_id from request
+        $deviceId = $request->input('device_id');
+        $systemType = $request->input('system_type', 'clean_water');
+
+        // STRICT VALIDATION: Only allow clean_water
+        if ($systemType !== 'clean_water') {
+            return response()->json([
+                'error' => 'Invalid system_type',
+                'message' => 'Smart recommendations are only available for clean_water system type.',
+                'provided_type' => $systemType
+            ], 400);
+        }
+
+        // Build query for the latest sensor reading
+        $query = SensorReading::whereHas('sensorSystem', function ($q) use ($deviceId) {
+            $q->where('is_active', true);
+            
+            if ($deviceId) {
+                $q->where('device_id', $deviceId);
+            }
+            
+            $q->where('system_type', 'clean_water');
+        });
+
+        // Get the latest reading
+        $latestReading = $query->orderBy('reading_time', 'desc')->first();
+
+        // If no reading found, return error
+        if (!$latestReading) {
+            return response()->json([
+                'error' => 'No sensor readings found',
+                'message' => 'Please ensure your clean water sensors are connected and transmitting data.',
+                'filters' => [
+                    'device_id' => $deviceId,
+                    'system_type' => 'clean_water'
+                ]
+            ], 404);
+        }
+
+        // Load sensor system relationship
+        $latestReading->load('sensorSystem');
+
+        // Generate smart recommendations
+        $result = $this->ragService->generateSmartRecommendations($latestReading);
+
+        if (!$result['success']) {
+            return response()->json([
+                'error' => $result['error'] ?? 'Failed to generate recommendations',
+                'details' => $result['details'] ?? null,
+                'message' => $result['message'] ?? null,
+                'validation_errors' => $result['validation_errors'] ?? null,
+                'raw_output' => $result['raw_output'] ?? null
+            ], 500);
+        }
+
+        // Return smart recommendations
+        return response()->json([
+            'device_id' => $latestReading->sensorSystem->device_id ?? null,
+            'system_type' => 'clean_water',
+            'current_reading' => [
+                'ph' => $latestReading->ph,
+                'tds' => $latestReading->tds,
+                'turbidity' => $latestReading->turbidity,
+                'water_level' => $latestReading->water_level,
+                'reading_time' => $latestReading->reading_time,
+            ],
+            'recommendations' => $result['recommendations']
         ]);
     }
 }
