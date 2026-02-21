@@ -38,5 +38,17 @@ return [
     |
     */
     'ec_to_tds_factor' => 0.5,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Threshold Alert Delay (seconds)
+    |--------------------------------------------------------------------------
+    |
+    | Wait this long after a threshold violation is first detected before
+    | sending a notification. Reduces spam and ensures sensors are stably
+    | out of range before alerting.
+    |
+    */
+    'alert_delay_seconds' => 120, // 2 minutes
 ];
 

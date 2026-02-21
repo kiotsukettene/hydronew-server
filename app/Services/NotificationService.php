@@ -7,6 +7,7 @@ use App\Models\Device;
 use App\Models\HydroponicSetup;
 use App\Models\Notification;
 use App\Models\SensorReading;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class NotificationService
@@ -71,7 +72,32 @@ class NotificationService
             $alerts = $this->checkHydroponicsWaterThresholds($sensorReading, $device);
         }
 
-        // Send alerts to all users of this device
+        $cacheKey = "sensor_threshold_violation:{$deviceId}:{$systemType}";
+        $delaySeconds = config('sensor_thresholds.alert_delay_seconds', 120);
+        $cacheTtl = max($delaySeconds + 60, 600); // at least 10 min so we can track episode
+
+        if (empty($alerts)) {
+            Cache::forget($cacheKey);
+            return;
+        }
+
+        $now = time();
+        $state = Cache::get($cacheKey);
+
+        if ($state === null) {
+            Cache::put($cacheKey, ['first_seen' => $now, 'notified_at' => null], $cacheTtl);
+            return;
+        }
+
+        if ($state['notified_at'] !== null) {
+            return; // already sent for this violation episode
+        }
+
+        if (($now - $state['first_seen']) < $delaySeconds) {
+            return; // wait until delay has passed
+        }
+
+        // Delay passed and still in violation: send notifications and mark as notified
         foreach ($alerts as $alert) {
             foreach ($device->users as $user) {
                 $this->createAndBroadcast(
@@ -83,6 +109,7 @@ class NotificationService
                 );
             }
         }
+        Cache::put($cacheKey, ['first_seen' => $state['first_seen'], 'notified_at' => $now], $cacheTtl);
     }
 
     /**
