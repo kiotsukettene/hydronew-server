@@ -23,15 +23,15 @@ class StoreHydroponicsRequest extends FormRequest
     {
         return [
             'crop_name' => 'required|string|max:255',
-            'number_of_crops' => 'required|integer|min:1',
+            'number_of_crops' => 'required|integer|min:1|max:1000',
             'bed_size' => 'required|in:small,medium,large,custom',
             'pump_config' => 'nullable|array',
             'nutrient_solution' => 'nullable|string|max:255',
-            'target_ph_min' => 'required|numeric',
-            'target_ph_max' => 'required|numeric',
-            'target_tds_min' => 'required|integer',
-            'target_tds_max' => 'required|integer',
-            'water_amount' => 'required|string|max:50',
+            'target_ph_min' => 'required|numeric|min:1|max:14',
+            'target_ph_max' => 'required|numeric|min:1|max:14',
+            'target_tds_min' => 'required|integer|min:1|max:10000',
+            'target_tds_max' => 'required|integer|min:1|max:10000',
+            'water_amount' => 'required|integer|min:1|max:50',
             'harvest_date' => 'required|date',
         ];
     }
