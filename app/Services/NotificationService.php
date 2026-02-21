@@ -129,18 +129,18 @@ class NotificationService
             }
         }
 
-        // If there are violations, combine them into a single alert
+        // If there are violations, combine them into a single alert (same pattern as hydroponics)
         if (!empty($violations)) {
             $paramNames = array_keys($violations);
             $paramMessages = array_values($violations);
             
             if (count($violations) === 1) {
-                $title = ucfirst($paramNames[0]) . ' Alert';
+                $title = $this->parameterDisplayName($paramNames[0]) . ' Alert';
                 $message = "Clean water " . $paramMessages[0];
             } else {
-                $paramList = $this->formatParameterList($paramNames);
+                $paramList = $this->formatParameterListForMessage($paramNames);
                 $title = 'Water Quality Alert';
-                $message = "Clean water: " . implode(', ', $paramMessages);
+                $message = "Clean water: {$paramList} are out of range. " . $this->formatViolationSentences($paramMessages);
             }
             
             return [[
@@ -153,18 +153,43 @@ class NotificationService
     }
     
     /**
-     * Format a list of parameters with proper grammar
+     * Display name for a parameter key (ph -> pH, tds -> TDS, etc.)
      */
-    private function formatParameterList(array $params): string
+    private function parameterDisplayName(string $key): string
     {
-        if (count($params) === 1) {
-            return $params[0];
-        } elseif (count($params) === 2) {
-            return $params[0] . ' and ' . $params[1];
-        } else {
-            $last = array_pop($params);
-            return implode(', ', $params) . ', and ' . $last;
+        return match ($key) {
+            'ph' => 'pH',
+            'tds' => 'TDS',
+            'turbidity' => 'Turbidity',
+            default => ucfirst($key),
+        };
+    }
+    
+    /**
+     * Format a list of parameters with proper grammar for "X and Y are..." or "X, Y, and Z are..."
+     */
+    private function formatParameterListForMessage(array $params): string
+    {
+        $display = array_map([$this, 'parameterDisplayName'], $params);
+        if (count($display) === 1) {
+            return $display[0];
         }
+        if (count($display) === 2) {
+            return $display[0] . ' and ' . $display[1];
+        }
+        $last = array_pop($display);
+        return implode(', ', $display) . ', and ' . $last;
+    }
+    
+    /**
+     * Format violation messages as separate sentences (each capitalized, period-separated).
+     */
+    private function formatViolationSentences(array $paramMessages): string
+    {
+        $sentences = array_map(function ($msg) {
+            return ucfirst(trim($msg));
+        }, $paramMessages);
+        return implode(' ', $sentences);
     }
 
     /**
@@ -216,18 +241,18 @@ class NotificationService
             }
         }
         
-        // If there are violations, combine them into a single alert
+        // If there are violations, combine them into a single alert (same pattern as clean water)
         if (!empty($violations)) {
             $paramNames = array_keys($violations);
             $paramMessages = array_values($violations);
             
             if (count($violations) === 1) {
-                $title = 'Hydroponics ' . ucfirst($paramNames[0]) . ' Alert';
+                $title = 'Hydroponics ' . $this->parameterDisplayName($paramNames[0]) . ' Alert';
                 $message = ucfirst($paramMessages[0]) . " for Setup #{$setupId} ({$cropName})";
             } else {
-                $paramList = $this->formatParameterList($paramNames);
-                $title = 'Hydroponics Alert';
-                $message = ucfirst(implode(', ', $paramMessages)) . " for Setup #{$setupId} ({$cropName})";
+                $paramList = $this->formatParameterListForMessage($paramNames);
+                $title = 'Hydroponics Water Quality Alert';
+                $message = "Hydroponics water: {$paramList} are out of range for Setup #{$setupId} ({$cropName}). " . $this->formatViolationSentences($paramMessages);
             }
             
             return [[
