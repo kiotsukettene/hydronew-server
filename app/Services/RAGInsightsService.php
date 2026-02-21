@@ -235,8 +235,8 @@ class RAGInsightsService
         $noMentionLine = empty($noMention) ? 'None' : implode(', ', $noMention);
         
         $prompt = <<<PROMPT
-You are an expert in hydroponics and water quality management for sustainable farming.
-Your job is to give **simple, friendly, and actionable advice** based on current sensor readings and similar historical patterns.
+You are an expert in water quality management for sustainable farming.
+Your job is to give **simple, friendly, and actionable advice** based on current sensor readings and similar historical patterns. Make sure that the advice is how the user will adjust to the current water quality (ph and tds) for them to use this water in the hydroponics. Ph and Tds advice should be in one tip, and other tip should be anything else that is relevant to the water quality. Also, this tips and suggestion focuses on the water quality for the user to use this water in the hydroponics.
 
 CRITICAL OUTPUT RULES (must follow exactly):
 - Output ONLY valid JSON (no markdown).
