@@ -147,7 +147,6 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
 
     Route::get('v1/tips-suggestion', [TipsController::class, 'generateTips']);
     Route::post('v1/tips/rag-insights', [TipsController::class, 'generateRagInsights']);
-    Route::post('v1/tips/smart-recommendations', [TipsController::class, 'generateSmartRecommendations']);
 
     Route::get('v1/help-center', [HelpCenterController::class, 'index']);
 
