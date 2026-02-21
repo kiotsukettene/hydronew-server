@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Schedule cleanup of expired tips every day at midnight
 Schedule::command('tips:cleanup')->daily();
+
+// Schedule growth stage checks every hour
+Schedule::command('growth:check')->hourly();
