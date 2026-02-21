@@ -7,6 +7,7 @@ use App\Models\Device;
 use App\Models\HydroponicSetup;
 use App\Models\Notification;
 use App\Models\SensorReading;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class NotificationService
@@ -71,7 +72,32 @@ class NotificationService
             $alerts = $this->checkHydroponicsWaterThresholds($sensorReading, $device);
         }
 
-        // Send alerts to all users of this device
+        $cacheKey = "sensor_threshold_violation:{$deviceId}:{$systemType}";
+        $delaySeconds = config('sensor_thresholds.alert_delay_seconds', 120);
+        $cacheTtl = max($delaySeconds + 60, 600); // at least 10 min so we can track episode
+
+        if (empty($alerts)) {
+            Cache::forget($cacheKey);
+            return;
+        }
+
+        $now = time();
+        $state = Cache::get($cacheKey);
+
+        if ($state === null) {
+            Cache::put($cacheKey, ['first_seen' => $now, 'notified_at' => null], $cacheTtl);
+            return;
+        }
+
+        if ($state['notified_at'] !== null) {
+            return; // already sent for this violation episode
+        }
+
+        if (($now - $state['first_seen']) < $delaySeconds) {
+            return; // wait until delay has passed
+        }
+
+        // Delay passed and still in violation: send notifications and mark as notified
         foreach ($alerts as $alert) {
             foreach ($device->users as $user) {
                 $this->createAndBroadcast(
@@ -83,6 +109,7 @@ class NotificationService
                 );
             }
         }
+        Cache::put($cacheKey, ['first_seen' => $state['first_seen'], 'notified_at' => $now], $cacheTtl);
     }
 
     /**
@@ -90,9 +117,10 @@ class NotificationService
      */
     private function checkCleanWaterThresholds(SensorReading $reading): array
     {
-        $alerts = [];
         $thresholds = config('sensor_thresholds.clean_water');
         $ecToTdsFactor = config('sensor_thresholds.ec_to_tds_factor', 0.5);
+        
+        $violations = [];
 
         // Check pH
         if ($reading->ph !== null) {
@@ -101,15 +129,9 @@ class NotificationService
             $phMax = $thresholds['ph']['max'];
 
             if ($ph < $phMin) {
-                $alerts[] = [
-                    'title' => 'pH Level Alert',
-                    'message' => "Clean water pH is {$ph}, below safe limit of {$phMin}",
-                ];
+                $violations['ph'] = "pH is {$ph}, below safe limit of {$phMin}";
             } elseif ($ph > $phMax) {
-                $alerts[] = [
-                    'title' => 'pH Level Alert',
-                    'message' => "Clean water pH is {$ph}, above safe limit of {$phMax}",
-                ];
+                $violations['ph'] = "pH is {$ph}, above safe limit of {$phMax}";
             }
         }
 
@@ -119,10 +141,7 @@ class NotificationService
             $turbidityMax = $thresholds['turbidity']['max'];
 
             if ($turbidity >= $turbidityMax) {
-                $alerts[] = [
-                    'title' => 'Turbidity Alert',
-                    'message' => "Clean water turbidity is {$turbidity} NTU, above safe limit of {$turbidityMax} NTU",
-                ];
+                $violations['turbidity'] = "turbidity is {$turbidity} NTU, above safe limit of {$turbidityMax} NTU";
             }
         }
 
@@ -133,14 +152,71 @@ class NotificationService
             $tdsMax = $thresholds['tds']['max'];
 
             if ($tds >= $tdsMax) {
-                $alerts[] = [
-                    'title' => 'TDS Level Alert',
-                    'message' => "Clean water TDS is " . round($tds, 2) . " ppm (from EC {$ec} µS/cm), above safe limit of {$tdsMax} ppm",
-                ];
+                $violations['tds'] = "TDS is " . round($tds, 2) . " ppm (from EC {$ec} µS/cm), above safe limit of {$tdsMax} ppm";
             }
         }
 
-        return $alerts;
+        // If there are violations, combine them into a single alert (same pattern as hydroponics)
+        if (!empty($violations)) {
+            $paramNames = array_keys($violations);
+            $paramMessages = array_values($violations);
+            
+            if (count($violations) === 1) {
+                $title = $this->parameterDisplayName($paramNames[0]) . ' Alert';
+                $message = "Clean water " . $paramMessages[0];
+            } else {
+                $paramList = $this->formatParameterListForMessage($paramNames);
+                $title = 'Water Quality Alert';
+                $message = "Clean water: {$paramList} are out of range. " . $this->formatViolationSentences($paramMessages);
+            }
+            
+            return [[
+                'title' => $title,
+                'message' => $message,
+            ]];
+        }
+
+        return [];
+    }
+    
+    /**
+     * Display name for a parameter key (ph -> pH, tds -> TDS, etc.)
+     */
+    private function parameterDisplayName(string $key): string
+    {
+        return match ($key) {
+            'ph' => 'pH',
+            'tds' => 'TDS',
+            'turbidity' => 'Turbidity',
+            default => ucfirst($key),
+        };
+    }
+    
+    /**
+     * Format a list of parameters with proper grammar for "X and Y are..." or "X, Y, and Z are..."
+     */
+    private function formatParameterListForMessage(array $params): string
+    {
+        $display = array_map([$this, 'parameterDisplayName'], $params);
+        if (count($display) === 1) {
+            return $display[0];
+        }
+        if (count($display) === 2) {
+            return $display[0] . ' and ' . $display[1];
+        }
+        $last = array_pop($display);
+        return implode(', ', $display) . ', and ' . $last;
+    }
+    
+    /**
+     * Format violation messages as separate sentences (each capitalized, period-separated).
+     */
+    private function formatViolationSentences(array $paramMessages): string
+    {
+        $sentences = array_map(function ($msg) {
+            return ucfirst(trim($msg));
+        }, $paramMessages);
+        return implode(' ', $sentences);
     }
 
     /**
@@ -148,8 +224,6 @@ class NotificationService
      */
     private function checkHydroponicsWaterThresholds(SensorReading $reading, Device $device): array
     {
-        $alerts = [];
-
         // Get active hydroponic setups for users of this device (use lazy loading)
         $userIds = $device->users->pluck('id')->toArray();
         $setups = HydroponicSetup::whereIn('user_id', $userIds)
@@ -158,13 +232,15 @@ class NotificationService
             ->lazy();
 
         if ($setups->isEmpty()) {
-            return $alerts;
+            return [];
         }
 
         // Use the first setup for now
         $setup = $setups->first();
         $cropName = $setup->crop_name;
         $setupId = $setup->id;
+        
+        $violations = [];
 
         // Check pH
         if ($reading->ph !== null) {
@@ -173,15 +249,9 @@ class NotificationService
             $phMax = (float) $setup->target_ph_max;
 
             if ($ph < $phMin) {
-                $alerts[] = [
-                    'title' => 'Hydroponics pH Alert',
-                    'message' => "pH level is {$ph}, below target minimum of {$phMin} for Setup #{$setupId} ({$cropName})",
-                ];
+                $violations['ph'] = "pH is {$ph}, below target minimum of {$phMin}";
             } elseif ($ph > $phMax) {
-                $alerts[] = [
-                    'title' => 'Hydroponics pH Alert',
-                    'message' => "pH level is {$ph}, above target maximum of {$phMax} for Setup #{$setupId} ({$cropName})",
-                ];
+                $violations['ph'] = "pH is {$ph}, above target maximum of {$phMax}";
             }
         }
 
@@ -192,18 +262,33 @@ class NotificationService
             $tdsMax = (float) $setup->target_tds_max;
 
             if ($tds < $tdsMin) {
-                $alerts[] = [
-                    'title' => 'Hydroponics TDS Alert',
-                    'message' => "TDS level is {$tds} ppm, below target minimum of {$tdsMin} ppm for Setup #{$setupId} ({$cropName})",
-                ];
+                $violations['tds'] = "TDS is {$tds} ppm, below target minimum of {$tdsMin} ppm";
             } elseif ($tds > $tdsMax) {
-                $alerts[] = [
-                    'title' => 'Hydroponics TDS Alert',
-                    'message' => "TDS level is {$tds} ppm, above target maximum of {$tdsMax} ppm for Setup #{$setupId} ({$cropName})",
-                ];
+                $violations['tds'] = "TDS is {$tds} ppm, above target maximum of {$tdsMax} ppm";
             }
         }
-        return $alerts;
+        
+        // If there are violations, combine them into a single alert (same pattern as clean water)
+        if (!empty($violations)) {
+            $paramNames = array_keys($violations);
+            $paramMessages = array_values($violations);
+            
+            if (count($violations) === 1) {
+                $title = 'Hydroponics ' . $this->parameterDisplayName($paramNames[0]) . ' Alert';
+                $message = ucfirst($paramMessages[0]) . " for Setup #{$setupId} ({$cropName})";
+            } else {
+                $paramList = $this->formatParameterListForMessage($paramNames);
+                $title = 'Hydroponics Water Quality Alert';
+                $message = "Hydroponics water: {$paramList} are out of range for Setup #{$setupId} ({$cropName}). " . $this->formatViolationSentences($paramMessages);
+            }
+            
+            return [[
+                'title' => $title,
+                'message' => $message,
+            ]];
+        }
+        
+        return [];
     }
 
     /**
