@@ -31,7 +31,7 @@ class StoreHydroponicsRequest extends FormRequest
             'target_ph_max' => 'required|numeric|min:1|max:14',
             'target_tds_min' => 'required|integer|min:1|max:10000',
             'target_tds_max' => 'required|integer|min:1|max:10000',
-            'water_amount' => 'required|integer|min:1|max:50',
+            'water_amount' => 'required|integer|min:1|max:100',
             'harvest_date' => 'required|date',
         ];
     }
