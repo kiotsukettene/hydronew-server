@@ -108,16 +108,26 @@ class FiltrationService
             }
 
             $filtrationProcess = FiltrationProcess::where('device_id', $device->id)
-                ->where('status', 'active')
+                ->whereIn('status', ['active', 'paused'])
                 ->first();
 
             if (!$filtrationProcess) {
-                Log::info('FiltrationService: No active filtration process', ['serial' => $deviceSerial]);
+                Log::info('FiltrationService: No active or paused filtration process', ['serial' => $deviceSerial]);
                 return;
             }
 
             // Update valve state
             $filtrationProcess->update(['valve_1_state' => (bool)$stateValue]);
+
+            // If valve closed (0) on a paused process (resume after machine came back online), just set active
+            if ($stateValue === 0 && $filtrationProcess->status === 'paused') {
+                $filtrationProcess->update(['status' => 'active']);
+                Log::info('FiltrationService: Paused process resumed – valve 1 closed, set active', [
+                    'serial' => $deviceSerial,
+                    'filtration_process_id' => $filtrationProcess->id,
+                ]);
+                return;
+            }
 
             // If valve closed (0) and Stage 1 is processing, complete Stage 1 and start Stage 2-4 cycle
             if ($stateValue === 0) {
@@ -187,11 +197,11 @@ class FiltrationService
             }
 
             $filtrationProcess = FiltrationProcess::where('device_id', $device->id)
-                ->where('status', 'active')
+                ->whereIn('status', ['active', 'paused'])
                 ->first();
 
             if (!$filtrationProcess) {
-                Log::info('FiltrationService: No active filtration process', ['serial' => $deviceSerial]);
+                Log::info('FiltrationService: No active or paused filtration process', ['serial' => $deviceSerial]);
                 return;
             }
 
@@ -203,6 +213,17 @@ class FiltrationService
                 $newState = 0;
             }
             $filtrationProcess->update(['valve_1_state' => (bool)$newState]);
+
+            // If valve closed (0) on a paused process, set back to active (resume after machine came back online)
+            if ($newState === 0 && $filtrationProcess->status === 'paused') {
+                $filtrationProcess->update(['status' => 'active']);
+                $this->publishValve1State($deviceSerial, $newState);
+                Log::info('FiltrationService: Paused process resumed (from valve ack) – valve 1 closed, set active', [
+                    'serial' => $deviceSerial,
+                    'filtration_process_id' => $filtrationProcess->id,
+                ]);
+                return;
+            }
 
             // Publish valve 1 state so frontend can update UI
             $this->publishValve1State($deviceSerial, $newState);
@@ -476,6 +497,93 @@ class FiltrationService
                 'device_id' => $deviceId,
                 'water_type' => $waterType,
                 'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Called when device is detected offline (no heartbeat within 90s).
+     * Pauses treatment only if: valve 1 is open AND dirty_water water level > 6%.
+     */
+    public function onDeviceOffline(Device $device): void
+    {
+        try {
+            $filtrationProcess = FiltrationProcess::where('device_id', $device->id)
+                ->where('status', 'active')
+                ->whereNotNull('stages_2_4_started_at')
+                ->where('valve_1_state', true)
+                ->first();
+
+            if (!$filtrationProcess) {
+                return;
+            }
+
+            $dirtyWaterSystem = SensorSystem::where('device_id', $device->id)
+                ->where('system_type', 'dirty_water')
+                ->first();
+
+            $waterLevel = $dirtyWaterSystem?->latestReading?->water_level;
+            if ($waterLevel === null || (float) $waterLevel <= 6) {
+                Log::info('FiltrationService: Device offline but not pausing – water level not above 6%', [
+                    'device_id' => $device->id,
+                    'serial' => $device->serial_number,
+                    'water_level' => $waterLevel,
+                ]);
+                return;
+            }
+
+            $filtrationProcess->update(['status' => 'paused']);
+            Log::info('FiltrationService: Treatment paused (device offline, valve 1 open, dirty water > 6%)', [
+                'device_id' => $device->id,
+                'serial' => $device->serial_number,
+                'filtration_process_id' => $filtrationProcess->id,
+                'water_level' => (float) $waterLevel,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: onDeviceOffline failed', [
+                'device_id' => $device->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+        }
+    }
+
+    /**
+     * Called when heartbeat received (device online).
+     * If there is a paused process with valve_1_state true (water was in anode), re-open valve 1.
+     */
+    public function onDeviceOnline(string $deviceSerial): void
+    {
+        try {
+            $device = Device::where('serial_number', $deviceSerial)->first();
+            if (!$device) {
+                return;
+            }
+
+            $device->update([
+                'status' => 'online',
+                'last_heartbeat_at' => now(),
+            ]);
+
+            $filtrationProcess = FiltrationProcess::where('device_id', $device->id)
+                ->where('status', 'paused')
+                ->where('valve_1_state', true)
+                ->first();
+
+            if (!$filtrationProcess) {
+                return;
+            }
+
+            Log::info('FiltrationService: Device back online – re-opening valve 1 for paused treatment (water in anode)', [
+                'serial' => $deviceSerial,
+                'filtration_process_id' => $filtrationProcess->id,
+            ]);
+            $this->publishOpenValve1Command($deviceSerial);
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: onDeviceOnline failed', [
+                'serial' => $deviceSerial,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }

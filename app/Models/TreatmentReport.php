@@ -20,7 +20,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property Carbon|null $end_time
  * @property string|null $final_status
  * @property int|null $total_cycles
- * 
+ * @property int|null $water_liters
+ *
  * @property Device $device
  * @property Collection|TreatmentStage[] $treatment_stages
  *
@@ -37,7 +38,8 @@ class TreatmentReport extends Model
 		'device_id' => 'int',
 		'start_time' => 'datetime',
 		'end_time' => 'datetime',
-		'total_cycles' => 'int'
+		'total_cycles' => 'int',
+		'water_liters' => 'int'
 	];
 
 	protected $fillable = [
@@ -45,7 +47,8 @@ class TreatmentReport extends Model
 		'start_time',
 		'end_time',
 		'final_status',
-		'total_cycles'
+		'total_cycles',
+		'water_liters'
 	];
 
 	public function device()

@@ -11,6 +11,64 @@ use Illuminate\Support\Facades\Validator;
 class TreatmentController extends Controller
 {
     /**
+     * Get all treatment reports for the user's device, each with its treatment_stages.
+     * Returns an array of treatment_report objects, each containing a stages array.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getAllTreatmentReports(Request $request)
+    {
+        $user = $request->user();
+        $device = $user->devices()->first();
+
+        if (!$device) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No device connected to this user'
+            ], 404);
+        }
+
+        $treatmentReports = TreatmentReport::where('device_id', $device->id)
+            ->with(['treatment_stages' => function ($query) {
+                $query->orderBy('stage_order');
+            }])
+            ->orderByDesc('start_time')
+            ->get();
+
+        $data = $treatmentReports->map(function ($report) {
+            return [
+                'id' => $report->id,
+                'device_id' => $report->device_id,
+                'start_time' => $report->start_time?->toIso8601String(),
+                'end_time' => $report->end_time?->toIso8601String(),
+                'final_status' => $report->final_status,
+                'total_cycles' => $report->total_cycles,
+                'water_liters' => $report->water_liters,
+                'stages' => $report->treatment_stages->map(function ($stage) {
+                    return [
+                        'id' => $stage->id,
+                        'stage_name' => $stage->stage_name,
+                        'stage_order' => $stage->stage_order,
+                        'status' => $stage->status,
+                        'ph' => $stage->pH,
+                        'tds' => $stage->TDS,
+                        'turbidity' => $stage->turbidity,
+                        'notes' => $stage->notes,
+                        'started_at' => $stage->started_at?->toIso8601String(),
+                        'completed_at' => $stage->completed_at?->toIso8601String(),
+                    ];
+                })->values()->all(),
+            ];
+        })->values()->all();
+
+        return response()->json([
+            'success' => true,
+            'data' => $data
+        ], 200);
+    }
+
+    /**
      * Get the latest treatment report for the user's device.
      * If the report is pending, includes its treatment_stages so the frontend can show stage statuses.
      *
@@ -56,6 +114,7 @@ class TreatmentController extends Controller
             'end_time' => $treatmentReport->end_time?->toIso8601String(),
             'final_status' => $treatmentReport->final_status,
             'total_cycles' => $treatmentReport->total_cycles,
+            'water_liters' => $treatmentReport->water_liters,
         ];
 
         if ($isPending && $treatmentReport->relationLoaded('treatment_stages')) {
@@ -227,11 +286,13 @@ class TreatmentController extends Controller
         }
 
         try {
+            $water_liters = 10;
             // Update the treatment report from "pending" to "success"
             $treatmentReport->update([
                 'final_status' => 'success',
                 'end_time' => now(), // Set to current time when API is called
                 'total_cycles' => $request->total_cycles,
+                'water_liters' => $water_liters,
             ]);
 
             \Log::info('updateTreatment: Treatment report updated successfully', [
