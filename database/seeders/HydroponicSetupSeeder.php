@@ -40,7 +40,7 @@ class HydroponicSetupSeeder extends Seeder
                 'target_ph_max' => 6.5,
                 'target_tds_min' => 400,
                 'target_tds_max' => 800,
-                'water_amount' => '20L',
+                'water_amount' => 20,
                 'harvest_date' => now()->addDays(35),
                 'setup_date' => now()->subDays(10), // 10 days old = seedling
                 'growth_stage' => 'seedling',
@@ -55,7 +55,7 @@ class HydroponicSetupSeeder extends Seeder
                 'target_ph_max' => 6.2,
                 'target_tds_min' => 500,
                 'target_tds_max' => 900,
-                'water_amount' => '30L',
+                'water_amount' => 30,
                 'harvest_date' => now()->addDays(20),
                 'setup_date' => now()->subDays(20), // 20 days old = vegetative (14-29)
                 'growth_stage' => 'vegetative',
@@ -70,7 +70,7 @@ class HydroponicSetupSeeder extends Seeder
                 'target_ph_max' => 6.5,
                 'target_tds_min' => 700,
                 'target_tds_max' => 1200,
-                'water_amount' => '18L',
+                'water_amount' => 18,
                 'harvest_date' => now()->addDays(15),
                 'setup_date' => now()->subDays(25), // 25 days old = vegetative (14-29)
                 'growth_stage' => 'vegetative',
@@ -85,7 +85,7 @@ class HydroponicSetupSeeder extends Seeder
                 'target_ph_max' => 7.0,
                 'target_tds_min' => 600,
                 'target_tds_max' => 1000,
-                'water_amount' => '28L',
+                'water_amount' => 28,
                 'harvest_date' => now()->addDays(10),
                 'setup_date' => now()->subDays(35), // 35 days old, harvest in future = flowering
                 'growth_stage' => 'flowering',
@@ -101,7 +101,7 @@ class HydroponicSetupSeeder extends Seeder
                 'target_ph_max' => 6.5,
                 'target_tds_min' => 800,
                 'target_tds_max' => 1400,
-                'water_amount' => '15L',
+                'water_amount' => 15,
                 'harvest_date' => now()->addDays(45),
                 'setup_date' => now()->subDays(8), // 8 days old = seedling (<14)
                 'growth_stage' => 'seedling',
@@ -116,7 +116,7 @@ class HydroponicSetupSeeder extends Seeder
                 'target_ph_max' => 7.0,
                 'target_tds_min' => 500,
                 'target_tds_max' => 900,
-                'water_amount' => '10L',
+                'water_amount' => 10,
                 'harvest_date' => now()->subDays(2), // Past harvest date = harvest-ready
                 'setup_date' => now()->subDays(45),
                 'growth_stage' => 'harvest-ready',
@@ -134,7 +134,7 @@ class HydroponicSetupSeeder extends Seeder
                 'target_ph_max' => 6.3,
                 'target_tds_min' => 1200,
                 'target_tds_max' => 2000,
-                'water_amount' => '40L',
+                'water_amount' => 40,
                 'harvest_date' => now()->subDays(1), // 1 day past harvest = harvest-ready (within 5 days)
                 'setup_date' => now()->subDays(50),
                 'growth_stage' => 'harvest-ready',
@@ -149,7 +149,7 @@ class HydroponicSetupSeeder extends Seeder
                 'target_ph_max' => 6.0,
                 'target_tds_min' => 1000,
                 'target_tds_max' => 1800,
-                'water_amount' => '35L',
+                'water_amount' => 35,
                 'harvest_date' => now()->subDays(7), // 7 days past harvest = overgrown (>5 days)
                 'setup_date' => now()->subDays(55),
                 'growth_stage' => 'overgrown',
@@ -165,7 +165,7 @@ class HydroponicSetupSeeder extends Seeder
                 'target_ph_max' => 7.0,
                 'target_tds_min' => 600,
                 'target_tds_max' => 1100,
-                'water_amount' => '22L',
+                'water_amount' => 22,
                 'harvest_date' => now()->addDays(20),
                 'setup_date' => now()->subDays(18), // 18 days old = vegetative (14-29)
                 'growth_stage' => 'vegetative',
@@ -180,7 +180,7 @@ class HydroponicSetupSeeder extends Seeder
                 'target_ph_max' => 6.8,
                 'target_tds_min' => 500,
                 'target_tds_max' => 900,
-                'water_amount' => '20L',
+                'water_amount' => 20,
                 'harvest_date' => now()->addDays(0), // Harvest date is today = harvest-ready
                 'setup_date' => now()->subDays(40),
                 'growth_stage' => 'harvest-ready',
