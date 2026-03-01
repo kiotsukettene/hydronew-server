@@ -155,6 +155,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('v1/feedback', [FeedbackController::class, 'index']);
 
     Route::get('v1/treatment/latest', [TreatmentController::class, 'getLatestTreatmentReport']);
+    Route::get('v1/treatment/reports', [TreatmentController::class, 'getAllTreatmentReports']);
     Route::post('v1/treatment', [TreatmentController::class, 'saveTreatment']);
 
     // Filtration commands (frontend calls these instead of publishing MQTT directly; backend publishes command, then state on ack)

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Device;
+use App\Jobs\CheckDeviceOfflineJob;
 use App\Services\MQTTSensorDataHandlerService;
 use App\Services\FiltrationService;
 use Illuminate\Console\Command;
@@ -82,6 +83,7 @@ class MqttListen extends Command
                 // Subscribe to sensor topics and filtration topics
                 $topics = [
                     "hydronew/ai-classification/backend",
+                    "biotech/+/heartbeat",
                     // Filtration topics with wildcards
                     "mfc/+/pump/3/ack",
                     "mfc/+/pump/3/state",
@@ -152,6 +154,8 @@ class MqttListen extends Command
             // Route to appropriate handler based on topic
             if ($topic === 'hydronew/ai-classification/backend') {
                 $this->handleAIClassificationTopic($message);
+            } elseif (preg_match('#^biotech/([^/]+)/heartbeat$#', $topic, $matches)) {
+                $this->handleHeartbeatTopic($matches[1]);
             } else {
                 $this->handleFiltrationTopic($topic, $message);
             }
@@ -185,6 +189,20 @@ class MqttListen extends Command
 
         $this->sensorHandler->handleAIClassificationPayload($data);
         $this->info("✓ Processed AI classification data");
+    }
+
+    /**
+     * Handle biotech/{serial}/heartbeat – device is online.
+     * Updates device status and last_heartbeat_at; if a paused treatment has water in anode, re-opens valve 1.
+     * Dispatches a job to run in 90s: if no newer heartbeat by then, device is marked offline.
+     */
+    protected function handleHeartbeatTopic(string $serial): void
+    {
+        $this->info("✓ Heartbeat received for device {$serial}");
+        $this->filtrationService->onDeviceOnline($serial);
+
+        CheckDeviceOfflineJob::dispatch($serial)
+            ->delay(now()->addSeconds(90));
     }
 
     protected function handleFiltrationTopic(string $topic, string $message): void
