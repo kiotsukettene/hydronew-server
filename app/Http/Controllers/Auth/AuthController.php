@@ -79,6 +79,13 @@ class AuthController extends Controller
                 ], 422);
         }
 
+        // Check if the user is an admin
+        if ($user->role === 'admin') {
+            return response()->json([
+                    'message' => 'User doesn\'t exist'
+                ], 422);
+        }
+
         if (!$user->email_verified_at) {
             // regenerate OTP
             $otp = $this->generateOtp();

@@ -301,7 +301,7 @@ class NotificationService
     ): void {
         $userId = $setup->user_id;
         $deviceId = $setup->device_id;
-        $cropName = $setup->crop_name;
+        $cropName = ucfirst($setup->crop_name);
 
         // Determine notification type and message based on new stage
         if ($newStage === 'harvest-ready') {
