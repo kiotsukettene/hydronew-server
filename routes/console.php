@@ -11,5 +11,10 @@ Artisan::command('inspire', function () {
 // Schedule cleanup of expired tips every day at midnight
 Schedule::command('tips:cleanup')->daily();
 
-// Schedule growth stage checks every hour
-Schedule::command('growth:check')->hourly();
+// Schedule growth stage checks every day at midnight
+Schedule::command('growth:check')->daily();
+
+// Schedule health status checks every 30 minutes
+Schedule::command('hydroponics:check-health-status')
+    ->everyThirtyMinutes()
+    ->withoutOverlapping();

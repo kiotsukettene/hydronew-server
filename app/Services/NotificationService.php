@@ -346,5 +346,48 @@ class NotificationService
             'new_stage' => $newStage,
         ]);
     }
+
+    /**
+     * Notify user when health status changes
+     */
+    public function notifyHealthStatusChange(
+        HydroponicSetup $setup,
+        string $oldStatus,
+        string $newStatus
+    ): void {
+        $userId = $setup->user_id;
+        $deviceId = $setup->device_id;
+        $cropName = ucfirst($setup->crop_name);
+        $setupId = $setup->id;
+
+        // Only send notification if status changed to 'poor' to avoid spam
+        if ($newStatus !== 'poor') {
+            return;
+        }
+
+        $statusNames = [
+            'good' => 'Good',
+            'moderate' => 'Moderate',
+            'poor' => 'Poor',
+        ];
+
+        $oldStatusName = $statusNames[$oldStatus] ?? $oldStatus;
+        $newStatusName = $statusNames[$newStatus] ?? $newStatus;
+
+        $this->createAndBroadcast(
+            $userId,
+            $deviceId,
+            'Health Status Alert',
+            "Setup #{$setupId} ({$cropName}) health status changed from {$oldStatusName} to {$newStatusName}. Check your water parameters (pH and TDS).",
+            'warning' // Health degradation is a warning
+        );
+
+        Log::info('Health status notification sent', [
+            'setup_id' => $setup->id,
+            'crop_name' => $setup->crop_name,
+            'old_status' => $oldStatus,
+            'new_status' => $newStatus,
+        ]);
+    }
 }
 
