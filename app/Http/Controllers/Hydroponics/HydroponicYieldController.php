@@ -8,6 +8,7 @@ use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
 use App\Models\HydroponicYieldGrade;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -22,78 +23,84 @@ class HydroponicYieldController extends Controller
 
         // Get filter parameters
         $filters = $request->only(['search', 'month', 'date_type']);
+        $filterHash = md5(json_encode($filters));
 
-        // Get all setups for statistics calculation (before pagination)
-        $allHarvestedSetups = HydroponicSetup::where('user_id', $user->id)
-            ->harvested()
-            ->with(['hydroponic_yields.grades'])
-            ->get();
+        $cacheKey = "yields:user:{$user->id}:l:{$limit}:o:{$offset}:f:{$filterHash}";
 
-        // Calculate statistics
-        $statistics = $this->calculateStatistics($allHarvestedSetups);
+        return Cache::tags(["user:{$user->id}", 'hydroponic_yields'])
+            ->remember($cacheKey, 300, function () use ($user, $limit, $offset, $filters) {
+                // Get all setups for statistics calculation (before pagination)
+                $allHarvestedSetups = HydroponicSetup::where('user_id', $user->id)
+                    ->harvested()
+                    ->with(['hydroponic_yields.grades'])
+                    ->get();
 
-        // Get total count of filtered results
-        $total = HydroponicSetup::where('user_id', $user->id)
-            ->harvested()
-            ->filter($filters)
-            ->count();
+                // Calculate statistics
+                $statistics = $this->calculateStatistics($allHarvestedSetups);
 
-        // Get paginated filtered results
-        $setups = HydroponicSetup::where('user_id', $user->id)
-            ->harvested()
-            ->filter($filters)
-            ->with(['hydroponic_yields.grades'])
-            ->skip($offset)
-            ->take($limit)
-            ->get();
+                // Get total count of filtered results
+                $total = HydroponicSetup::where('user_id', $user->id)
+                    ->harvested()
+                    ->filter($filters)
+                    ->count();
 
-        // Transform data with duration calculation
-        $data = $setups->map(function ($setup) {
-            $yield = $setup->hydroponic_yields->first();
+                // Get paginated filtered results
+                $setups = HydroponicSetup::where('user_id', $user->id)
+                    ->harvested()
+                    ->filter($filters)
+                    ->with(['hydroponic_yields.grades'])
+                    ->skip($offset)
+                    ->take($limit)
+                    ->get();
 
-            // Calculate duration: days from setup_date to harvest_date
-            $duration = 0;
-            if ($setup->setup_date && $setup->harvest_date) {
-                $setupDate = Carbon::parse($setup->setup_date)->startOfDay();
-                $harvestDate = Carbon::parse($setup->harvest_date)->startOfDay();
-                $duration = (int) $setupDate->diffInDays($harvestDate, false);
-            }
+                // Transform data with duration calculation
+                $data = $setups->map(function ($setup) {
+                    $yield = $setup->hydroponic_yields->first();
 
-            return [
-                'id' => $setup->id,
-                'crop_name' => $setup->crop_name,
-                'number_of_crops' => $setup->number_of_crops,
-                'bed_size' => $setup->bed_size,
-                'setup_date' => $setup->setup_date,
-                'harvest_date' => $setup->harvest_date,
-                'duration_days' => $duration,
-                'status' => $setup->status,
-                'yield' => $yield ? [
-                    'id' => $yield->id,
-                    'total_count' => $yield->total_count,
-                    'total_weight' => $yield->total_weight,
-                    'notes' => $yield->notes,
-                    'grades' => $yield->grades->map(function ($grade) {
-                        return [
-                            'id' => $grade->id,
-                            'grade' => $grade->grade,
-                            'count' => $grade->count,
-                            'weight' => $grade->weight,
-                        ];
-                    }),
-                ] : null,
-            ];
-        });
+                    // Calculate duration: days from setup_date to harvest_date
+                    $duration = 0;
+                    if ($setup->setup_date && $setup->harvest_date) {
+                        $setupDate = Carbon::parse($setup->setup_date)->startOfDay();
+                        $harvestDate = Carbon::parse($setup->harvest_date)->startOfDay();
+                        $duration = (int) $setupDate->diffInDays($harvestDate, false);
+                    }
 
-        return response()->json([
-            'status' => 'success',
-            'statistics' => $statistics,
-            'data' => $data,
-            'has_more' => ($offset + $limit) < $total,
-            'total' => $total,
-            'offset' => $offset,
-            'limit' => $limit,
-        ]);
+                    return [
+                        'id' => $setup->id,
+                        'crop_name' => $setup->crop_name,
+                        'number_of_crops' => $setup->number_of_crops,
+                        'bed_size' => $setup->bed_size,
+                        'setup_date' => $setup->setup_date,
+                        'harvest_date' => $setup->harvest_date,
+                        'duration_days' => $duration,
+                        'status' => $setup->status,
+                        'yield' => $yield ? [
+                            'id' => $yield->id,
+                            'total_count' => $yield->total_count,
+                            'total_weight' => $yield->total_weight,
+                            'notes' => $yield->notes,
+                            'grades' => $yield->grades->map(function ($grade) {
+                                return [
+                                    'id' => $grade->id,
+                                    'grade' => $grade->grade,
+                                    'count' => $grade->count,
+                                    'weight' => $grade->weight,
+                                ];
+                            }),
+                        ] : null,
+                    ];
+                });
+
+                return response()->json([
+                    'status' => 'success',
+                    'statistics' => $statistics,
+                    'data' => $data,
+                    'has_more' => ($offset + $limit) < $total,
+                    'total' => $total,
+                    'offset' => $offset,
+                    'limit' => $limit,
+                ]);
+            });
     }
 
     /**
@@ -140,36 +147,41 @@ class HydroponicYieldController extends Controller
 
     public function show(HydroponicSetup $setup)
     {
-        $setupDate = Carbon::parse($setup->setup_date);
-        $now = Carbon::now();
+        $cacheKey = "yield:setup:{$setup->id}";
 
-        $yields = $setup->hydroponic_yields->map(function ($yield) use ($setup, $setupDate, $now) {
-            $plantAge = (int) $setupDate->diffInDays($now);
+        return Cache::tags(["user:{$setup->user_id}", 'hydroponic_yields'])
+            ->remember($cacheKey, 300, function () use ($setup) {
+                $setupDate = Carbon::parse($setup->setup_date);
+                $now = Carbon::now();
 
-            $daysLeft = null;
-            if ($yield->harvest_date) {
-                $harvestDate = Carbon::parse($yield->harvest_date);
-                $daysLeft = (int) $now->diffInDays($harvestDate, false);
-            }
+                $yields = $setup->hydroponic_yields->map(function ($yield) use ($setup, $setupDate, $now) {
+                    $plantAge = (int) $setupDate->diffInDays($now);
 
-            return [
-                'id' => $yield->id,
-                'crop_name' => $setup->crop_name,
-                'setup_date' => $setup->setup_date,
-                'harvest_date' => $setup->harvest_date,
-                'plant_age' => $plantAge,
-                'days_left' => $daysLeft,
-                'status' => $setup->status,
-                'growth_stage' => $setup->growth_stage,
-                'health_status' => $setup->health_status,
-                'harvest_status' => $setup->harvest_status,
-            ];
-        });
+                    $daysLeft = null;
+                    if ($yield->harvest_date) {
+                        $harvestDate = Carbon::parse($yield->harvest_date);
+                        $daysLeft = (int) $now->diffInDays($harvestDate, false);
+                    }
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $yields,
-        ]);
+                    return [
+                        'id' => $yield->id,
+                        'crop_name' => $setup->crop_name,
+                        'setup_date' => $setup->setup_date,
+                        'harvest_date' => $setup->harvest_date,
+                        'plant_age' => $plantAge,
+                        'days_left' => $daysLeft,
+                        'status' => $setup->status,
+                        'growth_stage' => $setup->growth_stage,
+                        'health_status' => $setup->health_status,
+                        'harvest_status' => $setup->harvest_status,
+                    ];
+                });
+
+                return response()->json([
+                    'status' => 'success',
+                    'data' => $yields,
+                ]);
+            });
     }
 
     public function storeYield(StoreYieldRequest $request, HydroponicSetup $setup)
@@ -226,6 +238,10 @@ class HydroponicYieldController extends Controller
 
             // Load grades relationship for response
             $yield->load('grades');
+
+            // Invalidate both yield and setup caches for this user
+            Cache::tags(['hydroponic_yields', "user:{$setup->user_id}"])->flush();
+            Cache::tags(['hydroponic_setups', "user:{$setup->user_id}"])->flush();
 
         return response()->json([
                 'status' => 'success',
