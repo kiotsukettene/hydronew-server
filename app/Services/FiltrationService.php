@@ -943,6 +943,15 @@ class FiltrationService
     }
 
     /**
+     * Publish Open Pump 4 command (OPEN to mfc/{serial}/pump/4).
+     */
+    public function publishOpenPump4Command(string $deviceSerial): void
+    {
+        $this->publishCommand("reservoir/{$deviceSerial}/pump/4", 'OPEN');
+        Log::info('FiltrationService: Published open pump 4 command', ['serial' => $deviceSerial]);
+    }
+
+    /**
      * Publish valve 1 state so frontend can sync UI (e.g. when only ack received, no state from IoT)
      */
     public function publishValve1State(string $deviceSerial, int $stateValue): void
