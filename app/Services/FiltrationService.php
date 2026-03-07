@@ -16,10 +16,12 @@ use Illuminate\Support\Facades\Log;
 class FiltrationService
 {
     protected MqttService $mqttService;
+    protected NotificationService $notificationService;
 
-    public function __construct(MqttService $mqttService)
+    public function __construct(MqttService $mqttService, NotificationService $notificationService)
     {
         $this->mqttService = $mqttService;
+        $this->notificationService = $notificationService;
     }
 
     /**
@@ -163,6 +165,14 @@ class FiltrationService
                         // Start Stage 2 immediately so frontend gets "processing" without waiting for queue
                         $this->startStage($filtrationProcess->id, 2);
                     });
+
+                    // Notify users about Stage 1 completion
+                    $this->notifyDeviceUsers(
+                        $filtrationProcess->device,
+                        'Filtration Complete',
+                        'Stage 1 Completed',
+                        'success'
+                    );
                 } else {
                     Log::warning('FiltrationService: Valve 1 closed but Stage 1 not in processing – skipping completion', [
                         'serial' => $deviceSerial,
@@ -252,6 +262,14 @@ class FiltrationService
                         // Start Stage 2 immediately so frontend gets "processing" without waiting for queue
                         $this->startStage($filtrationProcess->id, 2);
                     });
+
+                    // Notify users about Stage 1 completion
+                    $this->notifyDeviceUsers(
+                        $filtrationProcess->device,
+                        'Filtration Complete',
+                        'Stage 1 Completed',
+                        'success'
+                    );
                 } else {
                     Log::warning('FiltrationService: Valve 1 ack (closed) but Stage 1 not in processing – skipping completion', [
                         'serial' => $deviceSerial,
@@ -716,6 +734,16 @@ class FiltrationService
                 if ($stageNumber === 3) {
                     $this->publishStageState($device->serial_number, 2, 'passed');
                 }
+
+                // Notify users about stage completion (for stages 2-4 only, Stage 1 is notified elsewhere)
+                if ($stageNumber >= 2 && $stageNumber <= 4) {
+                    $this->notifyDeviceUsers(
+                        $device,
+                        'Filtration Complete',
+                        "Stage {$stageNumber} Completed",
+                        'success'
+                    );
+                }
             }
 
         } catch (\Exception $e) {
@@ -817,6 +845,14 @@ class FiltrationService
                 }
                 $this->publishStageState($device->serial_number, 4, 'failed');
 
+                // Notify users about treatment failure
+                $this->notifyDeviceUsers(
+                    $device,
+                    'Filtration Failed',
+                    'Treatment Failed. Please restart',
+                    'warning'
+                );
+
                 $this->publishCommand("filtration/{$device->serial_number}/restart", '1');
                 return;
             }
@@ -857,6 +893,14 @@ class FiltrationService
                     'restart_count' => $filtrationProcess->restart_count
                 ]);
             });
+
+            // Notify users about successful treatment completion
+            $this->notifyDeviceUsers(
+                $device,
+                'Filtration Complete',
+                'Water treatment completed successfully',
+                'success'
+            );
 
             // Always publish stages 2–4 passed so UI stays in sync (covers any lost earlier publish)
             $this->publishStageState($device->serial_number, 2, 'passed');
@@ -988,6 +1032,39 @@ class FiltrationService
         Log::info('FiltrationService: Published stage state', [
             'topic' => $topic,
             'status' => $status
+        ]);
+    }
+
+    /**
+     * Notify all users associated with a device
+     */
+    private function notifyDeviceUsers(
+        Device $device,
+        string $title,
+        string $message,
+        string $type
+    ): void {
+        $users = $device->users;
+        
+        if ($users->isEmpty()) {
+            Log::info('FiltrationService: No users to notify for device', ['device_id' => $device->id]);
+            return;
+        }
+        
+        foreach ($users as $user) {
+            $this->notificationService->createAndBroadcast(
+                userId: $user->id,
+                deviceId: $device->id,
+                title: $title,
+                message: $message,
+                type: $type
+            );
+        }
+
+        Log::info('FiltrationService: Notified device users', [
+            'device_id' => $device->id,
+            'user_count' => $users->count(),
+            'title' => $title,
         ]);
     }
 }
