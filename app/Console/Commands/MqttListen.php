@@ -93,6 +93,7 @@ class MqttListen extends Command
                     "mfc_fallback/+/valve/2/state",
                     "reservoir_fallback/+/pump/1/ack",
                     "reservoir_fallback/+/pump/1/state",
+                    "reservoir/+/pump/4/ack",
                 ];
 
                 foreach ($topics as $topic) {
@@ -219,6 +220,7 @@ class MqttListen extends Command
         // mfc_fallback/{serial}/valve/2/state
         // reservoir_fallback/{serial}/pump/1/ack
         // reservoir_fallback/{serial}/pump/1/state
+        // reservoir/{serial}/pump/4/ack
 
         // Parse pump/3 ack: only process when ack=1 (command executed). ack=0 means did not execute.
         if (preg_match('#^mfc/([^/]+)/pump/3/ack$#', $topic, $matches)) {
@@ -281,6 +283,17 @@ class MqttListen extends Command
             }
             $this->info("✓ Restart pump ack received for device {$serial}");
             $this->filtrationService->handleRestartPumpAck($serial);
+            return;
+        }
+
+        // Parse pump/4 ack: only log when ack=1 (command executed). ack=0 means did not execute.
+        if (preg_match('#^reservoir/([^/]+)/pump/4/ack$#', $topic, $matches)) {
+            $serial = $matches[1];
+            if ($value !== 1) {
+                $this->warn("⚠ Pump 4 ack=0 for device {$serial} (command did not execute, skipping)");
+                return;
+            }
+            $this->info("✓ Pump 4 ack received for device {$serial}");
             return;
         }
 
