@@ -520,6 +520,58 @@ class FiltrationService
     }
 
     /**
+     * Check automatic pump 4 stop condition based on clean water level
+     * Called from MQTTSensorDataHandlerService after saving sensor readings
+     * Automatically stops pump 4 when clean_water level reaches 0%
+     */
+    public function checkAutoPump4Stop(int $deviceId, string $waterType, array $sensorData): void
+    {
+        // Only check for clean_water type
+        if ($waterType !== 'clean_water') {
+            return;
+        }
+
+        try {
+            $filtrationProcess = FiltrationProcess::where('device_id', $deviceId)
+                ->where('status', 'active')
+                ->first();
+
+            if (!$filtrationProcess) {
+                return;
+            }
+
+            // Only proceed if pump 4 is currently running
+            if (!$filtrationProcess->pump_4_state) {
+                return;
+            }
+
+            $device = $filtrationProcess->device;
+            $waterLevel = $sensorData['WaterLevel'] ?? $sensorData['water_level'] ?? null;
+
+            if ($waterLevel === null) {
+                return;
+            }
+
+            // STOP condition: pump 4 is running AND clean_water.water_level <= 0
+            if ((float)$waterLevel <= 0) {
+                Log::info('FiltrationService: Auto-stopping pump 4 (clean water level reached 0%)', [
+                    'device_id' => $deviceId,
+                    'water_level' => $waterLevel,
+                ]);
+
+                $this->publishCommand("reservoir/{$device->serial_number}/pump/4", 'CLOSE');
+            }
+
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: checkAutoPump4Stop failed', [
+                'device_id' => $deviceId,
+                'water_type' => $waterType,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
      * Called when device is detected offline (no heartbeat within 90s).
      * Pauses treatment only if: valve 1 is open AND dirty_water water level > 6%.
      */
