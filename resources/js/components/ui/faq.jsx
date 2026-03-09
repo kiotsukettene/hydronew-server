@@ -21,14 +21,14 @@ const FAQ = () => {
           Hydronew uses a three-stage process to ensure the water is safe for your plants:
           <ul className="list-disc pl-5 mt-2 space-y-1">
             <li>
-              <span className="font-medium">Stage 1: Natural Filtration</span> — The water first passes
-              through a filter of sand, gravel, and anthracite to remove physical particles and
-              sediment.
-            </li>
-            <li>
-              <span className="font-medium">Stage 2: Bio‑Treatment (MFC)</span> — In a Microbial Fuel Cell
+              <span className="font-medium">Stage 1: Bio‑Treatment (MFC)</span> — In a Microbial Fuel Cell
               (MFC), beneficial microorganisms naturally consume organic waste, cleaning the water and
               generating a small amount of electricity.
+            </li>
+            <li>
+              <span className="font-medium">Stage 2: Natural Filtration</span> — The water first passes
+              through a filter of sand, gravel, and anthracite to remove physical particles and
+              sediment.
             </li>
             <li>
               <span className="font-medium">Stage 3: UV Sterilization</span> — Finally, a UV filter
