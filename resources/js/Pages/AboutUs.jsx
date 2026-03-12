@@ -122,62 +122,92 @@ export default function AboutUs() {
         </div>
 
           {/* Team Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 lg:gap-8 justify-items-center">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 md:gap-6 justify-items-center">
             {[
               {
                 name: "Joshua Gabriel Dantes",
                 role: "Project Manager",
-                image: "/images/joshua.png"
+                image: "/images/riel.png",
+                linkedin: "https://www.linkedin.com/in/joshua-gabriel-p-dantes-230a99371/"
               },
               {
                 name: "Russell Kelvin Anthony Loreto",
                 role: "Software Lead / Full Stack Developer",
-                image: "/images/russell.png"
+                image: "/images/russ.png",
+                linkedin: "http://www.linkedin.com/in/russell-loreto"
               },
               {
                 name: "Raymond Palomares",
                 role: "Research Lead / Database Administrator",
-                image: "/images/raymond.png"
+                image: "/images/mon.png",
+                linkedin: "http://www.linkedin.com/in/palomares-raymond"
               },
               {
-                name: "Marianne Celest T. Jerez",
+                name: "Marianne Celest Jerez",
                 role: "Lead Frontend Developer / UI UX Designer",
-                image: "/images/marianne.png"
+                image: "/images/celest.png",
+                linkedin: "https://www.linkedin.com/in/jerez-marianne-celest/"
               },
               {
                 name: "Lyniel Aya-ay",
                 role: "Lead IoT & Hardware Developer",
-                image: "/images/lyniel.png"
+                image: "/images/niel.png",
+                linkedin: "https://www.linkedin.com/in/lyniel-cris-aya-ay/"
               },
               {
                 name: "B.J. Cabaat",
                 role: "Quality Assurance Specialist",
-                image: "/images/bj.png"
+                image: "/images/bjj.png",
+                linkedin: "https://www.linkedin.com/in/b-j-cabaat-a18664365"
               },
               {
                 name: "Calvin Ramboyong",
                 role: "Frontend Developer",
-                image: "/images/calvin.png"
+                image: "/images/calvs.png",
+                linkedin: "https://www.linkedin.com/in/jhediael-calvin-ramboyong-b4573932b/"
               },
             ].map((member, index) => (
-              <div key={index} className="flex flex-col items-center text-center relative w-full max-w-[150px] sm:max-w-[160px] md:max-w-[180px] lg:max-w-[200px]">
-                {/* Profile Image Container */}
-                <div className="w-full aspect-square overflow-hidden rounded-xl sm:rounded-2xl shadow-lg">
-                  <img
-                    src={member.image}
-                    alt={member.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+              <div
+                key={index}
+                className="w-full max-w-[190px] sm:max-w-[210px] md:max-w-[230px] lg:max-w-[250px] flex justify-center"
+              >
+                <div className="relative w-full ">
+                  {/* Card */}
+                  <div className="bg-[#dbdbdb] rounded-xl shadow-xl overflow-hidden w-full pt-6 pb-12">
+                    {/* Profile Image */}
+                    <div className="w-full sm:h-52 md:h-56 flex items-center justify-center">
+                      <img
+                        src={member.image}
+                        alt={member.name}
+                        className="h-full w-auto object-contain"
+                      />
+                    </div>
+                  </div>
 
-                {/* Glass Morphism Info Box */}
-                <div className="absolute  bottom-0 bg-black/80 backdrop-blur-md text-white rounded-b-xl sm:rounded-b-2xl rounded-t-none p-2 sm:p-2.5 md:p-3 w-full shadow-xl">
-                  <h4 className="font-semibold text-[9px] sm:text-[10px] md:text-xs mb-0.5 leading-tight">
-                    {member.name}
-                  </h4>
-                  <p className="text-[8px] sm:text-[9px] md:text-[10px] text-gray-300 leading-tight">
-                    {member.role}
-                  </p>
+                  {/* Floating Info Card */}
+                  <div className="absolute left-3 right-3 bottom-4 bg-white rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between gap-2">
+                    <div className="text-left">
+                      <h4 className="font-semibold text-xs sm:text-sm leading-tight text-gray-900">
+                        {member.name}
+                      </h4>
+                      <p className="text-[10px] sm:text-xs text-gray-500 leading-tight">
+                        {member.role}
+                      </p>
+                    </div>
+
+                    {/* LinkedIn icon button */}
+                    {member.linkedin && (
+                      <a
+                        href={member.linkedin}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`${member.name} on LinkedIn`}
+                        className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-gray-200 bg-gray-50 text-[12px] font-semibold text-gray-800 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-colors"
+                      >
+                        in
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

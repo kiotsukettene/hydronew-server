@@ -11,12 +11,12 @@ export function FooterSection() {
         socialLinks={[
           {
             icon: <Facebook className="h-5 w-5" />,
-            href: "https://facebook.com",
+            href: "https://www.facebook.com/HydronewTeamBiotech",
             label: "Facebook",
           },
           {
             icon: <Mail className="h-5 w-5" />,
-            href: "mailto:contact@hydronew.com",
+            href: "https://mail.google.com/mail/?view=cm&fs=1&to=hydronew.dev@gmail.com",
             label: "Gmail",
           },
         ]}
@@ -28,7 +28,7 @@ export function FooterSection() {
         ]}
         legalLinks={[
           { href: "/privacy-policy", label: "Privacy Policy" },
-          { href: "/terms-of-service", label: "Terms of Service" },
+          { href: "/terms", label: "Terms of Service" },
         ]}
         copyright={{
           text: "© 2025 HydroNew",

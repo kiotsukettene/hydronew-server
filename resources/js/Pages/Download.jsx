@@ -44,17 +44,7 @@ const Download = () => {
               {/* Download Buttons */}
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row gap-4">
-                  {/* App Store Button */}
-                  <a
-                    href="#"
-                    className="flex items-center justify-center gap-3 bg-black text-white px-6 py-3 rounded-full hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-xl group min-w-[200px]"
-                  >
-                    <Apple className="w-8 h-8" />
-                    <div className="text-left">
-                      <div className="text-xs opacity-90">Download on the</div>
-                      <div className="text-lg font-semibold">App Store</div>
-                    </div>
-                  </a>
+                
 
                   {/* Google Play Button */}
                   <a
