@@ -28,9 +28,9 @@ class StoreHydroponicsRequest extends FormRequest
             'pump_config' => 'nullable|array',
             'nutrient_solution' => 'nullable|string|max:255',
             'target_ph_min' => 'required|numeric|min:1|max:14',
-            'target_ph_max' => 'required|numeric|min:1|max:14',
-            'target_tds_min' => 'required|integer|min:1|max:10000',
-            'target_tds_max' => 'required|integer|min:1|max:10000',
+            'target_ph_max' => 'required|numeric|min:1|max:14|gte:target_ph_min',
+            'target_tds_min' => 'required|integer|min:200|max:1500',
+            'target_tds_max' => 'required|integer|min:200|max:1500|gte:target_tds_min',
             'water_amount' => 'required|integer|min:1|max:100',
             'harvest_date' => 'required|date',
         ];
