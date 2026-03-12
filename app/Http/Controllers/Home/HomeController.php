@@ -19,4 +19,12 @@ class HomeController extends Controller
     public function download() {
         return Inertia::render('Download');
     }
+
+    public function privacyPolicy() {
+        return Inertia::render('Privacy-Policy');
+    }
+
+    public function terms(){
+        return Inertia::render('Terms');
+    }
 }

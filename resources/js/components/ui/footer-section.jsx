@@ -28,7 +28,7 @@ export function FooterSection() {
         ]}
         legalLinks={[
           { href: "/privacy-policy", label: "Privacy Policy" },
-          { href: "/terms-of-service", label: "Terms of Service" },
+          { href: "/terms", label: "Terms of Service" },
         ]}
         copyright={{
           text: "© 2025 HydroNew",
