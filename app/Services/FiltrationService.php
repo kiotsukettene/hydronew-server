@@ -16,10 +16,12 @@ use Illuminate\Support\Facades\Log;
 class FiltrationService
 {
     protected MqttService $mqttService;
+    protected NotificationService $notificationService;
 
-    public function __construct(MqttService $mqttService)
+    public function __construct(MqttService $mqttService, NotificationService $notificationService)
     {
         $this->mqttService = $mqttService;
+        $this->notificationService = $notificationService;
     }
 
     /**
@@ -163,6 +165,14 @@ class FiltrationService
                         // Start Stage 2 immediately so frontend gets "processing" without waiting for queue
                         $this->startStage($filtrationProcess->id, 2);
                     });
+
+                    // Notify users about Stage 1 completion
+                    $this->notifyDeviceUsers(
+                        $filtrationProcess->device,
+                        'Filtration Complete',
+                        'Stage 1 Completed',
+                        'success'
+                    );
                 } else {
                     Log::warning('FiltrationService: Valve 1 closed but Stage 1 not in processing – skipping completion', [
                         'serial' => $deviceSerial,
@@ -252,6 +262,14 @@ class FiltrationService
                         // Start Stage 2 immediately so frontend gets "processing" without waiting for queue
                         $this->startStage($filtrationProcess->id, 2);
                     });
+
+                    // Notify users about Stage 1 completion
+                    $this->notifyDeviceUsers(
+                        $filtrationProcess->device,
+                        'Filtration Complete',
+                        'Stage 1 Completed',
+                        'success'
+                    );
                 } else {
                     Log::warning('FiltrationService: Valve 1 ack (closed) but Stage 1 not in processing – skipping completion', [
                         'serial' => $deviceSerial,
@@ -502,6 +520,58 @@ class FiltrationService
     }
 
     /**
+     * Check automatic pump 4 stop condition based on clean water level
+     * Called from MQTTSensorDataHandlerService after saving sensor readings
+     * Automatically stops pump 4 when clean_water level reaches 0%
+     */
+    public function checkAutoPump4Stop(int $deviceId, string $waterType, array $sensorData): void
+    {
+        // Only check for clean_water type
+        if ($waterType !== 'clean_water') {
+            return;
+        }
+
+        try {
+            $filtrationProcess = FiltrationProcess::where('device_id', $deviceId)
+                ->where('status', 'active')
+                ->first();
+
+            if (!$filtrationProcess) {
+                return;
+            }
+
+            // Only proceed if pump 4 is currently running
+            if (!$filtrationProcess->pump_4_state) {
+                return;
+            }
+
+            $device = $filtrationProcess->device;
+            $waterLevel = $sensorData['WaterLevel'] ?? $sensorData['water_level'] ?? null;
+
+            if ($waterLevel === null) {
+                return;
+            }
+
+            // STOP condition: pump 4 is running AND clean_water.water_level <= 0
+            if ((float)$waterLevel <= 0) {
+                Log::info('FiltrationService: Auto-stopping pump 4 (clean water level reached 0%)', [
+                    'device_id' => $deviceId,
+                    'water_level' => $waterLevel,
+                ]);
+
+                $this->publishCommand("reservoir/{$device->serial_number}/pump/4", 'CLOSE');
+            }
+
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: checkAutoPump4Stop failed', [
+                'device_id' => $deviceId,
+                'water_type' => $waterType,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
      * Called when device is detected offline (no heartbeat within 90s).
      * Pauses treatment only if: valve 1 is open AND dirty_water water level > 6%.
      */
@@ -716,6 +786,16 @@ class FiltrationService
                 if ($stageNumber === 3) {
                     $this->publishStageState($device->serial_number, 2, 'passed');
                 }
+
+                // Notify users about stage completion (for stages 2-4 only, Stage 1 is notified elsewhere)
+                if ($stageNumber >= 2 && $stageNumber <= 4) {
+                    $this->notifyDeviceUsers(
+                        $device,
+                        'Filtration Complete',
+                        "Stage {$stageNumber} Completed",
+                        'success'
+                    );
+                }
             }
 
         } catch (\Exception $e) {
@@ -817,6 +897,14 @@ class FiltrationService
                 }
                 $this->publishStageState($device->serial_number, 4, 'failed');
 
+                // Notify users about treatment failure
+                $this->notifyDeviceUsers(
+                    $device,
+                    'Filtration Failed',
+                    'Treatment Failed. Please restart',
+                    'warning'
+                );
+
                 $this->publishCommand("filtration/{$device->serial_number}/restart", '1');
                 return;
             }
@@ -857,6 +945,14 @@ class FiltrationService
                     'restart_count' => $filtrationProcess->restart_count
                 ]);
             });
+
+            // Notify users about successful treatment completion
+            $this->notifyDeviceUsers(
+                $device,
+                'Filtration Complete',
+                'Water treatment completed successfully',
+                'success'
+            );
 
             // Always publish stages 2–4 passed so UI stays in sync (covers any lost earlier publish)
             $this->publishStageState($device->serial_number, 2, 'passed');
@@ -943,6 +1039,15 @@ class FiltrationService
     }
 
     /**
+     * Publish Open Pump 4 command (OPEN to mfc/{serial}/pump/4).
+     */
+    public function publishOpenPump4Command(string $deviceSerial): void
+    {
+        $this->publishCommand("reservoir/{$deviceSerial}/pump/4", 'OPEN');
+        Log::info('FiltrationService: Published open pump 4 command', ['serial' => $deviceSerial]);
+    }
+
+    /**
      * Publish valve 1 state so frontend can sync UI (e.g. when only ack received, no state from IoT)
      */
     public function publishValve1State(string $deviceSerial, int $stateValue): void
@@ -979,6 +1084,39 @@ class FiltrationService
         Log::info('FiltrationService: Published stage state', [
             'topic' => $topic,
             'status' => $status
+        ]);
+    }
+
+    /**
+     * Notify all users associated with a device
+     */
+    private function notifyDeviceUsers(
+        Device $device,
+        string $title,
+        string $message,
+        string $type
+    ): void {
+        $users = $device->users;
+        
+        if ($users->isEmpty()) {
+            Log::info('FiltrationService: No users to notify for device', ['device_id' => $device->id]);
+            return;
+        }
+        
+        foreach ($users as $user) {
+            $this->notificationService->createAndBroadcast(
+                userId: $user->id,
+                deviceId: $device->id,
+                title: $title,
+                message: $message,
+                type: $type
+            );
+        }
+
+        Log::info('FiltrationService: Notified device users', [
+            'device_id' => $device->id,
+            'user_count' => $users->count(),
+            'title' => $title,
         ]);
     }
 }

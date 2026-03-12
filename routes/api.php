@@ -165,6 +165,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::post('v1/filtration/commands/open-drain-valve', [FiltrationCommandController::class, 'openDrainValve']);
     Route::post('v1/filtration/commands/close-drain-valve', [FiltrationCommandController::class, 'closeDrainValve']);
     Route::post('v1/filtration/commands/restart', [FiltrationCommandController::class, 'restart']);
+    Route::post('v1/filtration/commands/open-pump-4', [FiltrationCommandController::class, 'openPump4']);
     Route::put('v1/treatment/update-treatment', [TreatmentController::class, 'updateTreatment']);
     Route::post('v1/treatment/stages', [TreatmentController::class, 'saveTreatmentStage']);
     Route::put('v1/treatment/update-stages', [TreatmentController::class, 'updateTreatmentStage']);

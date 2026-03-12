@@ -158,4 +158,25 @@ class FiltrationCommandController extends Controller
             'message' => 'Restart command sent. Stage states will update when device acknowledges.',
         ], 200);
     }
+
+    /**
+     * Open Pump 4 – publish OPEN to mfc/{serial}/pump/4.
+     */
+    public function openPump4(Request $request): JsonResponse
+    {
+        $device = $this->resolveDevice($request);
+        if (!$device) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No device found. Pair a device first or provide a valid serial.',
+            ], 404);
+        }
+
+        $this->filtrationService->publishOpenPump4Command($device->serial_number);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Open pump 4 command sent.',
+        ], 200);
+    }
 }

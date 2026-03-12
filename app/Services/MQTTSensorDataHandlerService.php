@@ -241,6 +241,23 @@ public function handleAIClassificationPayload(array $payload): void
                 }
             }
 
+            // 9c. Check pump 4 auto-stop condition (only for clean_water)
+            if ($waterType === 'clean_water') {
+                try {
+                    $this->filtrationService->checkAutoPump4Stop(
+                        $device->id,
+                        $waterType,
+                        $sensors
+                    );
+                } catch (\Exception $e) {
+                    Log::error('Failed to check pump 4 auto-stop condition', [
+                        'device_id' => $device->id,
+                        'water_type' => $waterType,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             // 10. Broadcast the data - MUST BE INSIDE THE FOREACH LOOP
             DB::afterCommit(function () use ($sensorReading, $device, $waterType) {
                 try {
