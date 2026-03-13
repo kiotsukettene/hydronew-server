@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\HydroponicSetup;
 use App\Models\SensorSystem;
 use App\Models\SensorReading;
+use App\Models\DeviceUser;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -29,19 +30,25 @@ class DashboardController extends Controller
         $user = $request->user();
         $deviceId = $request->input('device_id', 1); // Default to device 1
 
+        // Check if the user is connected to the device
+        $isConnected = DeviceUser::where('user_id', $user->id)
+            ->where('device_id', $deviceId)
+            ->exists();
+
+        if (!$isConnected) {
+            return response()->json([
+                'user' => $user->first_name ?? $user->name,
+                'ph_levels' => [],
+                'nearest_to_harvest' => null,
+            ]);
+        }
+
         // Get all sensor systems for the device with their latest readings
         $sensorSystems = SensorSystem::where('device_id', $deviceId)
     ->where('is_active', true)
     ->where('system_type', '=', 'clean_water')
     ->with('latestReading')
     ->get();
-
-        if ($sensorSystems->isEmpty()) {
-            return response()->json([
-                'message' => 'No active sensor systems found for this device.',
-                'device_id' => $deviceId,
-            ], 404);
-        }
 
         // Format the response with only pH data
         $phData = [];

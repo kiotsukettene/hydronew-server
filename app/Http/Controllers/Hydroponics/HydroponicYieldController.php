@@ -172,6 +172,38 @@ class HydroponicYieldController extends Controller
         ]);
     }
 
+    public function getSetupYield(HydroponicSetup $setup)
+    {
+        $setup->load('hydroponic_yields.grades');
+        
+        $yield = $setup->hydroponic_yields->first();
+
+        if (!$yield) {
+            return response()->json([
+                'status' => 'success',
+                'data' => null,
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'id' => $yield->id,
+                'total_count' => $yield->total_count,
+                'total_weight' => $yield->total_weight,
+                'notes' => $yield->notes,
+                'grades' => $yield->grades->map(function ($grade) {
+                    return [
+                        'id' => $grade->id,
+                        'grade' => $grade->grade,
+                        'count' => $grade->count,
+                        'weight' => $grade->weight,
+                    ];
+                }),
+            ],
+        ]);
+    }
+
     public function storeYield(StoreYieldRequest $request, HydroponicSetup $setup)
     {
         $validated = $request->validated();

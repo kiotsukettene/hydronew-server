@@ -143,8 +143,9 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::post('v1/hydroponic-setups/{setup}/mark-harvested',[HydroponicSetupController::class, 'markAsHarvested']);
 
     Route::get('v1/hydroponic-yields', [HydroponicYieldController::class, 'index']);
-    Route::get('v1/hydroponic-yields/{setup}', [HydroponicYieldController::class, 'show']);
+    Route::get('v1/hydroponic-yields/{setup}/yield', [HydroponicYieldController::class, 'getSetupYield']);
     Route::post('v1/hydroponic-yields/{setup}/store', [HydroponicYieldController::class, 'storeYield']);
+    Route::get('v1/hydroponic-yields/{setup}', [HydroponicYieldController::class, 'show']);
 
     Route::post('v1/tips/rag-insights', [TipsController::class, 'generateRagInsights']);
 

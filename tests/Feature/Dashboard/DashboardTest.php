@@ -80,7 +80,7 @@ describe('Dashboard Overview', function () {
             ]);
     });
 
-    it('returns 404 when pH sensor does not exist', function () {
+    it('returns empty pH levels when sensor does not exist', function () {
         $device = Device::factory()->create();
         $device->users()->attach($this->user->id);
 
@@ -89,10 +89,12 @@ describe('Dashboard Overview', function () {
         $response = $this->actingAs($this->user)
             ->getJson('/api/v1/dashboard?device_id=' . $device->id);
 
-        $response->assertStatus(404)
+        $response->assertStatus(200)
             ->assertJson([
-                'message' => 'No active sensor systems found for this device.',
+                'user' => $this->user->first_name ?? $this->user->name,
                 'device_id' => $device->id,
+                'ph_levels' => [],
+                'nearest_to_harvest' => null,
             ]);
     });
 
