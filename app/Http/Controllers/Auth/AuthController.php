@@ -87,14 +87,21 @@ class AuthController extends Controller
         }
 
         if (!$user->email_verified_at) {
-            // regenerate OTP
-            $otp = $this->generateOtp();
-            $this->storeOtpOnUser($user, $otp);
-            $user->notify(new VerificationCodeNotification($otp));
-
+            // Check if there's a valid existing OTP
+            $hasValidOtp = $user->verification_code 
+                && $user->verification_expires_at 
+                && !$user->verification_expires_at->isPast();
+            
+            if (!$hasValidOtp) {
+                // Only generate new OTP if there isn't a valid one
+                $otp = $this->generateOtp();
+                $this->storeOtpOnUser($user, $otp);
+                $user->notify(new VerificationCodeNotification($otp));
+            } 
+        
             $user->tokens()->where('name', '!=', '')->delete();
             $verificationToken = $user->createToken('verification_token', ['verify'])->plainTextToken;
-
+        
             return response()->json([
                 'message' => 'Your email is not verified. Please check your email for the verification code.',
                 'token' => $verificationToken,
