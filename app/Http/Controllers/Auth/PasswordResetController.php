@@ -139,7 +139,13 @@ class PasswordResetController extends Controller
 
         // update the user's password
         $user = User::where('email', $request->email)->first();
+
+        if (Hash::check($request->password, $user->password)) {
+            return response()->json(['message' => 'New password cannot be the same as your current password.'], 400);
+        }
+        
         $user->password = Hash::make($request->password);
+
         $user->save();
 
         // delete the token record to prevent reuse
