@@ -179,4 +179,26 @@ class FiltrationCommandController extends Controller
             'message' => 'Open pump 4 command sent.',
         ], 200);
     }
+
+    /**
+     * Toggle Pump 2 – toggle between OPEN and CLOSE to hydroponics/{serial}/pump/2.
+     * If pump is open, send CLOSE. If pump is closed, send OPEN.
+     */
+    public function togglePump2(Request $request): JsonResponse
+    {
+        $device = $this->resolveDevice($request);
+        if (!$device) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No device found. Pair a device first or provide a valid serial.',
+            ], 404);
+        }
+
+        $this->filtrationService->publishTogglePump2Command($device->serial_number);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Pump 2 toggle command sent. State will update when device acknowledges.',
+        ], 200);
+    }
 }
