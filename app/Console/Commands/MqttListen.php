@@ -36,7 +36,7 @@ class MqttListen extends Command
         $config = config("mqtt-client.connections.$connectionName");
 
         // Keep-alive: 120 seconds to reduce "No ping response in time" on slow/unstable networks
-        $keepAlive = (int) env('MQTT_KEEP_ALIVE_INTERVAL', 120);
+        $keepAlive = (int) env('MQTT_KEEP_ALIVE_INTERVAL', 60);
 
         // Persistent session: broker keeps subscriptions and delivers messages that arrived while offline
         $usePersistentSession = filter_var(env('MQTT_USE_PERSISTENT_SESSION', true), FILTER_VALIDATE_BOOLEAN);

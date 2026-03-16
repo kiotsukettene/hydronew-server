@@ -183,6 +183,12 @@ class FiltrationCommandController extends Controller
     /**
      * Toggle Pump 2 – toggle between OPEN and CLOSE to hydroponics/{serial}/pump/2.
      * If pump is open, send CLOSE. If pump is closed, send OPEN.
+     * Accepts optional target_liters parameter for auto-stop (pump rate: 6 liters/minute).
+     * 
+     * Request body (optional):
+     * {
+     *   "target_liters": 5  // Can be 5, 10, 15, or any positive number
+     * }
      */
     public function togglePump2(Request $request): JsonResponse
     {
@@ -194,11 +200,26 @@ class FiltrationCommandController extends Controller
             ], 404);
         }
 
-        $this->filtrationService->publishTogglePump2Command($device->serial_number);
+        // Validate target_liters if provided
+        $validated = $request->validate([
+            'target_liters' => 'nullable|numeric|min:0.1|max:1000',
+        ]);
+
+        $targetLiters = $validated['target_liters'] ?? null;
+
+        $this->filtrationService->publishTogglePump2Command($device->serial_number, $targetLiters);
+
+        $message = 'Pump 2 toggle command sent. State will update when device acknowledges.';
+        if ($targetLiters > 0) {
+            $estimatedMinutes = round($targetLiters / 6, 2);
+            $message .= " Auto-stop scheduled after {$targetLiters} liters (~{$estimatedMinutes} minutes).";
+        }
 
         return response()->json([
             'success' => true,
-            'message' => 'Pump 2 toggle command sent. State will update when device acknowledges.',
+            'message' => $message,
+            'target_liters' => $targetLiters,
+            'estimated_minutes' => $targetLiters ? round($targetLiters / 6, 2) : null,
         ], 200);
     }
 }

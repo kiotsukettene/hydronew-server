@@ -18,6 +18,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property bool $valve_2_state
  * @property bool $pump_2_state
  * @property bool $pump_4_state
+ * @property float|null $pump_2_target_liters
+ * @property Carbon|null $pump_2_started_at
  * @property Carbon|null $stage_1_started_at
  * @property Carbon|null $stages_2_4_started_at
  * @property int $restart_count
@@ -43,6 +45,8 @@ class FiltrationProcess extends Model
         'valve_2_state' => 'bool',
         'pump_2_state' => 'bool',
         'pump_4_state' => 'bool',
+        'pump_2_target_liters' => 'float',
+        'pump_2_started_at' => 'datetime',
         'stage_1_started_at' => 'datetime',
         'stages_2_4_started_at' => 'datetime',
         'restart_count' => 'int'
@@ -57,6 +61,8 @@ class FiltrationProcess extends Model
         'valve_2_state',
         'pump_2_state',
         'pump_4_state',
+        'pump_2_target_liters',
+        'pump_2_started_at',
         'stage_1_started_at',
         'stages_2_4_started_at',
         'restart_count'

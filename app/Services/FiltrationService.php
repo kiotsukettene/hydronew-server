@@ -358,6 +358,7 @@ class FiltrationService
     /**
      * Handle pump 2 state changes
      * State: 1=open, 0=closed
+     * Track in HydroponicPumpState since pump 2 is for hydroponics, not filtration.
      */
     public function handlePump2State(string $deviceSerial, int $stateValue): void
     {
@@ -372,13 +373,20 @@ class FiltrationService
                 return;
             }
 
-            $filtrationProcess = FiltrationProcess::where('device_id', $device->id)
-                ->whereIn('status', ['active', 'paused'])
-                ->first();
+            $pumpState = \App\Models\HydroponicPumpState::firstOrCreate(
+                ['device_id' => $device->id],
+                ['pump_2_state' => false]
+            );
 
-            if ($filtrationProcess) {
-                $filtrationProcess->update(['pump_2_state' => (bool)$stateValue]);
+            $updateData = ['pump_2_state' => (bool)$stateValue];
+            
+            // If pump just closed (state=0), clear target and started_at
+            if ($stateValue === 0) {
+                $updateData['pump_2_target_liters'] = null;
+                $updateData['pump_2_started_at'] = null;
             }
+            
+            $pumpState->update($updateData);
 
         } catch (\Exception $e) {
             Log::error('FiltrationService: handlePump2State failed', [
@@ -391,6 +399,8 @@ class FiltrationService
 
     /**
      * Handle pump 2 acknowledgment. When ack=1, toggle state and publish so frontend stays in sync.
+     * If pump opens and has target_liters, schedule auto-stop job.
+     * Track in HydroponicPumpState since pump 2 is for hydroponics, not filtration.
      */
     public function handlePump2Ack(string $deviceSerial): void
     {
@@ -403,18 +413,43 @@ class FiltrationService
                 return;
             }
 
-            $filtrationProcess = FiltrationProcess::where('device_id', $device->id)
-                ->whereIn('status', ['active', 'paused'])
-                ->first();
+            $pumpState = \App\Models\HydroponicPumpState::firstOrCreate(
+                ['device_id' => $device->id],
+                ['pump_2_state' => false]
+            );
 
-            if (!$filtrationProcess) {
-                Log::info('FiltrationService: No active or paused filtration process for pump 2 ack', ['serial' => $deviceSerial]);
-                return;
+            $newState = $pumpState->pump_2_state ? 0 : 1;
+            $updateData = ['pump_2_state' => (bool)$newState];
+            
+            // If pump is opening (newState=1) and target_liters is set, record start time and schedule auto-stop
+            if ($newState === 1 && $pumpState->pump_2_target_liters > 0) {
+                $updateData['pump_2_started_at'] = now();
+                
+                // Calculate delay: target_liters / 6 liters per minute = minutes, convert to seconds
+                $delaySeconds = ($pumpState->pump_2_target_liters / 6) * 60;
+                
+                // Dispatch job to auto-stop pump 2 - pass device_id
+                \App\Jobs\StopPump2Job::dispatch($device->id)
+                    ->delay(now()->addSeconds($delaySeconds));
+                
+                Log::info('FiltrationService: Scheduled auto-stop for pump 2', [
+                    'serial' => $deviceSerial,
+                    'device_id' => $device->id,
+                    'target_liters' => $pumpState->pump_2_target_liters,
+                    'delay_seconds' => $delaySeconds,
+                    'stop_at' => now()->addSeconds($delaySeconds)->toDateTimeString()
+                ]);
             }
-
-            $newState = $filtrationProcess->pump_2_state ? 0 : 1;
-            $filtrationProcess->update(['pump_2_state' => (bool)$newState]);
+            
+            // If pump is closing (newState=0), clear target and started_at
+            if ($newState === 0) {
+                $updateData['pump_2_target_liters'] = null;
+                $updateData['pump_2_started_at'] = null;
+            }
+            
+            $pumpState->update($updateData);
             $this->publishPump2State($deviceSerial, $newState);
+            
         } catch (\Exception $e) {
             Log::error('FiltrationService: handlePump2Ack failed', [
                 'serial' => $deviceSerial,
@@ -1196,8 +1231,10 @@ class FiltrationService
 
     /**
      * Publish toggle Pump 2 command based on current state.
+     * Optionally set target liters for auto-stop (pump rate: 6 liters/minute).
+     * Track in HydroponicPumpState since pump 2 is for hydroponics, not filtration.
      */
-    public function publishTogglePump2Command(string $deviceSerial): void
+    public function publishTogglePump2Command(string $deviceSerial, ?float $targetLiters = null): void
     {
         $device = Device::where('serial_number', $deviceSerial)->first();
         if (!$device) {
@@ -1205,19 +1242,32 @@ class FiltrationService
             return;
         }
 
-        $filtrationProcess = FiltrationProcess::where('device_id', $device->id)
-            ->whereIn('status', ['active', 'paused'])
-            ->first();
+        $pumpState = \App\Models\HydroponicPumpState::firstOrCreate(
+            ['device_id' => $device->id],
+            ['pump_2_state' => false]
+        );
 
         $command = 'OPEN';
-        if ($filtrationProcess && $filtrationProcess->pump_2_state) {
+        if ($pumpState->pump_2_state) {
             $command = 'CLOSE';
+        }
+
+        // If opening pump and target_liters is provided, store it for auto-stop
+        if ($command === 'OPEN' && $targetLiters > 0) {
+            $pumpState->update(['pump_2_target_liters' => $targetLiters]);
+            
+            Log::info('FiltrationService: Set pump 2 target liters', [
+                'serial' => $deviceSerial,
+                'target_liters' => $targetLiters,
+                'estimated_minutes' => round($targetLiters / 6, 2)
+            ]);
         }
 
         $this->publishCommand("hydroponics/{$deviceSerial}/pump/2", $command);
         Log::info('FiltrationService: Published toggle pump 2 command', [
             'serial' => $deviceSerial,
-            'command' => $command
+            'command' => $command,
+            'target_liters' => $targetLiters
         ]);
     }
 
