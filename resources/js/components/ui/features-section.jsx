@@ -1,4 +1,4 @@
-import { Droplet, Filter, LayoutDashboard, Leaf, User } from "lucide-react";
+import { Brain, Droplet, Filter, LayoutDashboard, Leaf} from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 
 
@@ -97,9 +97,9 @@ function FeaturesSection() {
       animation: "bento2-drift 8s ease-in-out infinite",
     },
     {
-      title: "Account Management",
-      blurb: "Allows users to create and manage their own accounts, keeping their hydroponic data secure and personalized for better monitoring.",
-      icon: User,
+      title: "Smart Recommendations",
+      blurb: "Provides intelligent, data-driven suggestions based on real-time sensor data and user inputs, helping users optimize plant growth, improve resource efficiency, and make informed hydroponic decisions effortlessly.",
+      icon: Brain,
       animation: "bento2-glow 7s ease-in-out infinite",
     },
   ];

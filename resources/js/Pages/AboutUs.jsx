@@ -216,7 +216,7 @@ export default function AboutUs() {
       </section>
 
       {/* Acknowledgment Section */}
-      <section className="bg-[#6E9A7F] text-white py-8 sm:py-10 md:py-12 lg:py-14 mt-8 sm:mt-12 md:mt-16 lg:mt-20 rounded-xl sm:rounded-2xl md:rounded-3xl mx-0 sm:mx-2 md:mx-4 lg:mx-8 mb-4 sm:mb-6 shadow-lg">
+      <section className="bg-gray-400 text-white py-8 sm:py-10 md:py-12 lg:py-14 mt-8 sm:mt-12 md:mt-16 lg:mt-20 rounded-xl sm:rounded-2xl md:rounded-3xl mx-0 sm:mx-2 md:mx-4 lg:mx-8 mb-4 sm:mb-6 ">
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 md:px-8">
           <h3 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold mb-4 sm:mb-5 md:mb-6">Acknowledgment</h3>
           <p className="text-sm sm:text-base md:text-lg lg:text-xl opacity-95 leading-relaxed font-light">
