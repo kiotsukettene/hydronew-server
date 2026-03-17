@@ -586,34 +586,79 @@ class FiltrationService
      */
     protected function dispatchStage24Jobs(int $filtrationProcessId): void
     {
-        // Dispatch schedule from T=0 (Stage 2 start):
-        // 0s    - start_stage_2    - Immediate
-        // 60s   - start_stage_3    - Stage 3 begins
-        // 70s   - start_stage_4    - Stage 4 begins (60+10)
-        // 1510s - complete_stage_2 - 25min + 10s
-        // 1520s - complete_stage_3 - 25min + 20s
-        // 1550s - evaluate_stage_4 - 25min + 50s
+        $filtrationProcess = FiltrationProcess::find($filtrationProcessId);
+
+        if (!$filtrationProcess) {
+            Log::warning('FiltrationService: dispatchStage24Jobs – filtration process not found', [
+                'filtration_process_id' => $filtrationProcessId,
+            ]);
+            return;
+        }
+
+        // Normal cycle (first run, not from restart): original ~25 minute schedule.
+        if ($filtrationProcess->restart_count === 0) {
+            // Dispatch schedule from T=0 (Stage 2 start):
+            // 0s    - start_stage_2    - Immediate
+            // 60s   - start_stage_3    - Stage 3 begins
+            // 70s   - start_stage_4    - Stage 4 begins (60+10)
+            // 1510s - complete_stage_2 - 25min + 10s
+            // 1520s - complete_stage_3 - 25min + 20s
+            // 1550s - evaluate_stage_4 - 25min + 50s
+
+            ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'start_stage_2')
+                ->delay(now()->addSeconds(0));
+
+            ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'start_stage_3')
+                ->delay(now()->addSeconds(60));
+
+            ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'start_stage_4')
+                ->delay(now()->addSeconds(70));
+
+            ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'complete_stage_2')
+                ->delay(now()->addSeconds(1510));
+
+            ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'complete_stage_3')
+                ->delay(now()->addSeconds(1520));
+
+            ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'evaluate_stage_4')
+                ->delay(now()->addSeconds(1550));
+
+            Log::info('FiltrationService: Dispatched 6 timed jobs for stages 2-4 (normal cycle)', [
+                'filtration_process_id' => $filtrationProcessId,
+            ]);
+            return;
+        }
+
+        // Restart cycle: compressed timing (~2.5 minutes total).
+        // From T=0 (restart start):
+        // 0s    - start_stage_2
+        // 5s    - start_stage_3
+        // 10s   - start_stage_4
+        // 120s  - complete_stage_2      (~2 minutes runtime)
+        // 125s  - complete_stage_3      (5 seconds after stage 2 complete)
+        // 145s  - evaluate_stage_4      (20 seconds after stage 3 complete)
 
         ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'start_stage_2')
             ->delay(now()->addSeconds(0));
 
         ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'start_stage_3')
-            ->delay(now()->addSeconds(60));
+            ->delay(now()->addSeconds(5));
 
         ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'start_stage_4')
-            ->delay(now()->addSeconds(70));
+            ->delay(now()->addSeconds(10));
 
         ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'complete_stage_2')
-            ->delay(now()->addSeconds(1510));
+            ->delay(now()->addSeconds(120));
 
         ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'complete_stage_3')
-            ->delay(now()->addSeconds(1520));
+            ->delay(now()->addSeconds(125));
 
         ProcessFiltrationStageJob::dispatch($filtrationProcessId, 'evaluate_stage_4')
-            ->delay(now()->addSeconds(1550));
+            ->delay(now()->addSeconds(145));
 
-        Log::info('FiltrationService: Dispatched 6 timed jobs for stages 2-4', [
-            'filtration_process_id' => $filtrationProcessId
+        Log::info('FiltrationService: Dispatched 6 timed jobs for stages 2-4 (restart cycle)', [
+            'filtration_process_id' => $filtrationProcessId,
+            'restart_count' => $filtrationProcess->restart_count,
         ]);
     }
 
@@ -1003,7 +1048,6 @@ class FiltrationService
                 }
             }
 
-            // Evaluate clean_water AI classification across the Stage 4 window.
             $cleanWaterSystem = SensorSystem::where('device_id', $device->id)
                 ->where('system_type', 'clean_water')
                 ->first();
@@ -1012,30 +1056,62 @@ class FiltrationService
                 ->where('stage_order', 4)
                 ->first();
 
-            $stage4StartedAt = $stage4?->started_at;
-            if (!$stage4StartedAt) {
-                // Fallback to a reasonable window if stage start time is missing for any reason.
-                $stage4StartedAt = now()->subMinutes(30);
-                Log::warning('FiltrationService: Stage 4 started_at missing; using fallback window', [
-                    'filtration_process_id' => $filtrationProcessId,
-                    'fallback_started_at' => $stage4StartedAt,
-                ]);
-            }
-
             $goodCount = 0;
             $badCount = 0;
 
-            if ($cleanWaterSystem) {
-                $counts = SensorReading::where('sensor_system_id', $cleanWaterSystem->id)
-                    ->whereNotNull('ai_classification')
-                    ->where('reading_time', '>=', $stage4StartedAt)
-                    ->where('reading_time', '<=', now())
-                    ->select('ai_classification', DB::raw('COUNT(*) as cnt'))
-                    ->groupBy('ai_classification')
-                    ->pluck('cnt', 'ai_classification');
+            // Different AI evaluation logic for normal vs restart cycles.
+            $isRestartCycle = $filtrationProcess->restart_count > 0;
 
-                $goodCount = (int)($counts['good'] ?? 0);
-                $badCount = (int)($counts['bad'] ?? 0);
+            if ($isRestartCycle) {
+                // Restart cycle: use last 10 readings only.
+                if ($cleanWaterSystem) {
+                    $readings = SensorReading::where('sensor_system_id', $cleanWaterSystem->id)
+                        ->whereNotNull('ai_classification')
+                        ->orderByDesc('reading_time')
+                        ->limit(10)
+                        ->pluck('ai_classification');
+
+                    $goodCount = $readings->filter(fn($c) => $c === 'good')->count();
+                    $badCount = $readings->filter(fn($c) => $c === 'bad')->count();
+                }
+
+                Log::info('FiltrationService: Stage 4 evaluation (restart cycle – last 10 readings)', [
+                    'filtration_process_id' => $filtrationProcessId,
+                    'restart_count' => $filtrationProcess->restart_count,
+                    'good_count' => $goodCount,
+                    'bad_count' => $badCount,
+                ]);
+            } else {
+                // Normal cycle: use entire Stage 4 window.
+                $stage4StartedAt = $stage4?->started_at;
+                if (!$stage4StartedAt) {
+                    // Fallback to a reasonable window if stage start time is missing for any reason.
+                    $stage4StartedAt = now()->subMinutes(30);
+                    Log::warning('FiltrationService: Stage 4 started_at missing; using fallback window', [
+                        'filtration_process_id' => $filtrationProcessId,
+                        'fallback_started_at' => $stage4StartedAt,
+                    ]);
+                }
+
+                if ($cleanWaterSystem) {
+                    $counts = SensorReading::where('sensor_system_id', $cleanWaterSystem->id)
+                        ->whereNotNull('ai_classification')
+                        ->where('reading_time', '>=', $stage4StartedAt)
+                        ->where('reading_time', '<=', now())
+                        ->select('ai_classification', DB::raw('COUNT(*) as cnt'))
+                        ->groupBy('ai_classification')
+                        ->pluck('cnt', 'ai_classification');
+
+                    $goodCount = (int)($counts['good'] ?? 0);
+                    $badCount = (int)($counts['bad'] ?? 0);
+                }
+
+                Log::info('FiltrationService: Stage 4 evaluation (normal cycle – full window)', [
+                    'filtration_process_id' => $filtrationProcessId,
+                    'good_count' => $goodCount,
+                    'bad_count' => $badCount,
+                    'stage_4_started_at' => $stage4StartedAt,
+                ]);
             }
 
             $total = $goodCount + $badCount;
@@ -1047,7 +1123,7 @@ class FiltrationService
                     'filtration_process_id' => $filtrationProcessId,
                     'good_count' => $goodCount,
                     'bad_count' => $badCount,
-                    'stage_4_started_at' => $stage4StartedAt,
+                    'is_restart_cycle' => $isRestartCycle,
                 ]);
 
                 // Update existing Stage 4 to failed only (do not create new rows)
@@ -1077,7 +1153,7 @@ class FiltrationService
                 'good_count' => $goodCount,
                 'bad_count' => $badCount,
                 'total' => $total,
-                'stage_4_started_at' => $stage4StartedAt,
+                'is_restart_cycle' => $isRestartCycle,
             ]);
 
             // Complete Stage 4 and mark treatment as success
