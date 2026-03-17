@@ -418,12 +418,10 @@ class FiltrationService
                 ['pump_2_state' => false]
             );
 
-            $newState = $pumpState->pump_2_state ? 0 : 1;
-            $updateData = ['pump_2_state' => (bool)$newState];
-            
-            // If pump is opening (newState=1) and target_liters is set, record start time and schedule auto-stop
-            if ($newState === 1 && $pumpState->pump_2_target_liters > 0) {
-                $updateData['pump_2_started_at'] = now();
+            // Only handle auto-stop scheduling if target_liters is set and pump will be opening
+            // Don't toggle state here - let the IoT's state message handle that
+            if ($pumpState->pump_2_target_liters > 0 && !$pumpState->pump_2_state) {
+                $pumpState->update(['pump_2_started_at' => now()]);
                 
                 // Calculate delay: target_liters / 6 liters per minute = minutes, convert to seconds
                 $delaySeconds = ($pumpState->pump_2_target_liters / 6) * 60;
@@ -440,15 +438,6 @@ class FiltrationService
                     'stop_at' => now()->addSeconds($delaySeconds)->toDateTimeString()
                 ]);
             }
-            
-            // If pump is closing (newState=0), clear target and started_at
-            if ($newState === 0) {
-                $updateData['pump_2_target_liters'] = null;
-                $updateData['pump_2_started_at'] = null;
-            }
-            
-            $pumpState->update($updateData);
-            $this->publishPump2State($deviceSerial, $newState);
             
         } catch (\Exception $e) {
             Log::error('FiltrationService: handlePump2Ack failed', [
@@ -1230,15 +1219,14 @@ class FiltrationService
     }
 
     /**
-     * Publish toggle Pump 2 command based on current state.
-     * Optionally set target liters for auto-stop (pump rate: 6 liters/minute).
+     * Start Pump 2 with target liters (always OPEN).
      * Track in HydroponicPumpState since pump 2 is for hydroponics, not filtration.
      */
-    public function publishTogglePump2Command(string $deviceSerial, ?float $targetLiters = null): void
+    public function publishStartPump2Command(string $deviceSerial, float $targetLiters): void
     {
         $device = Device::where('serial_number', $deviceSerial)->first();
         if (!$device) {
-            Log::warning('FiltrationService: Device not found for pump 2 toggle', ['serial' => $deviceSerial]);
+            Log::warning('FiltrationService: Device not found for pump 2 start', ['serial' => $deviceSerial]);
             return;
         }
 
@@ -1247,28 +1235,53 @@ class FiltrationService
             ['pump_2_state' => false]
         );
 
-        $command = 'OPEN';
-        if ($pumpState->pump_2_state) {
-            $command = 'CLOSE';
-        }
+        // Store target liters for auto-stop
+        $pumpState->update(['pump_2_target_liters' => $targetLiters]);
 
-        // If opening pump and target_liters is provided, store it for auto-stop
-        if ($command === 'OPEN' && $targetLiters > 0) {
-            $pumpState->update(['pump_2_target_liters' => $targetLiters]);
-            
-            Log::info('FiltrationService: Set pump 2 target liters', [
-                'serial' => $deviceSerial,
-                'target_liters' => $targetLiters,
-                'estimated_minutes' => round($targetLiters / 6, 2)
-            ]);
-        }
-
-        $this->publishCommand("hydroponics/{$deviceSerial}/pump/2", $command);
-        Log::info('FiltrationService: Published toggle pump 2 command', [
+        $this->publishCommand("hydroponics/{$deviceSerial}/pump/2", 'OPEN');
+        
+        Log::info('FiltrationService: Published start pump 2 command', [
             'serial' => $deviceSerial,
-            'command' => $command,
-            'target_liters' => $targetLiters
+            'target_liters' => $targetLiters,
+            'estimated_minutes' => round($targetLiters / 6, 2)
         ]);
+    }
+
+    /**
+     * Stop Pump 2 manually (check if running, then send CLOSE).
+     * Returns true if stop command was sent, false if pump was already stopped.
+     * Track in HydroponicPumpState since pump 2 is for hydroponics, not filtration.
+     */
+    public function publishStopPump2Command(string $deviceSerial): bool
+    {
+        $device = Device::where('serial_number', $deviceSerial)->first();
+        if (!$device) {
+            Log::warning('FiltrationService: Device not found for pump 2 stop', ['serial' => $deviceSerial]);
+            return false;
+        }
+
+        $pumpState = \App\Models\HydroponicPumpState::where('device_id', $device->id)->first();
+        
+        // Check if pump is currently running
+        if (!$pumpState || !$pumpState->pump_2_state) {
+            Log::info('FiltrationService: Pump 2 already stopped, no command sent', [
+                'serial' => $deviceSerial,
+                'device_id' => $device->id
+            ]);
+            return false;
+        }
+
+        // Pump is running, send CLOSE command
+        $this->publishCommand("hydroponics/{$deviceSerial}/pump/2", 'CLOSE');
+        
+        Log::info('FiltrationService: Published manual stop command for pump 2', [
+            'serial' => $deviceSerial,
+            'device_id' => $device->id,
+            'target_liters' => $pumpState->pump_2_target_liters,
+            'started_at' => $pumpState->pump_2_started_at
+        ]);
+        
+        return true;
     }
 
     /**
@@ -1300,15 +1313,7 @@ class FiltrationService
     /**
      * Publish pump 2 state so frontend can sync UI when ack received.
      */
-    public function publishPump2State(string $deviceSerial, int $stateValue): void
-    {
-        $topic = "hydroponics/{$deviceSerial}/pump/2/state";
-        $this->mqttService->publish($topic, (string)$stateValue, 1);
-        Log::info('FiltrationService: Published pump 2 state', [
-            'topic' => $topic,
-            'state' => $stateValue
-        ]);
-    }
+
 
     /**
      * Publish pump 4 state so frontend can sync UI when ack received.
@@ -1326,16 +1331,6 @@ class FiltrationService
     /**
      * Publish stage state for frontend UI sync
      */
-    public function publishStageState(string $deviceSerial, int $stageNumber, string $status): void
-    {
-        $topic = "filtration/{$deviceSerial}/stage/{$stageNumber}/state";
-        $this->mqttService->publish($topic, $status, 1);
-
-        Log::info('FiltrationService: Published stage state', [
-            'topic' => $topic,
-            'status' => $status
-        ]);
-    }
 
     /**
      * Notify all users associated with a device
