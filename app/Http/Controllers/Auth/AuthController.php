@@ -86,6 +86,13 @@ class AuthController extends Controller
                 ], 422);
         }
 
+        if ($user->is_archived) {
+            return response()->json([
+                'message' => 'Your account has been archived. Please contact support.',
+                'is_archived' => true
+            ], 403);
+        }
+
         if (!$user->email_verified_at) {
             // Check if there's a valid existing OTP
             $hasValidOtp = $user->verification_code 
