@@ -55,14 +55,20 @@ class MqttService
         $client->connect($settings, true);
     }
 
+    /**
+     * Publish a message to an MQTT topic.
+     *
+     * @param int $qos Quality of Service: 1 = at least once delivery (recommended for reliable frontend sync)
+     */
     public function publish(string $topic, string|array $payload, int $qos = 1, bool $retain = false): void
     {
         try {
             $this->connect();
 
+            $message = is_array($payload) ? json_encode($payload) : $payload;
             $this->client->publish(
                 $topic,
-                json_encode($payload),
+                $message,
                 $qos,
                 $retain
             );

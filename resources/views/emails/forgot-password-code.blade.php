@@ -8,11 +8,11 @@
     <div style="max-width: 500px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; padding: 40px 50px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
         
         <div style="margin-bottom: 30px;">
-            <img src="{{ asset('logo.svg') }}" alt="HydroNew Logo" style="width: 120px; height: auto;">
+            <img src="{{ asset('logo.png') }}" alt="HydroNew Logo" style="width: 120px; height: auto;">
         </div>
 
         <div style="margin-bottom: 2px;">
-            <img src="{{ asset('email-svg2.svg') }}" alt="Mail Icon" style="width: 100px; height: auto;">
+            <img src="{{ asset('email-svg2.png') }}" alt="Mail Icon" style="width: 100px; height: auto;">
         </div>
  
         <h2 style="color: #2E2E2E; font-size: 26px; margin-bottom: 10px;">Password Reset Code</h2>

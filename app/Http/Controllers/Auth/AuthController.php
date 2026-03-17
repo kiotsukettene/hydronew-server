@@ -79,15 +79,36 @@ class AuthController extends Controller
                 ], 422);
         }
 
-        if (!$user->email_verified_at) {
-            // regenerate OTP
-            $otp = $this->generateOtp();
-            $this->storeOtpOnUser($user, $otp);
-            $user->notify(new VerificationCodeNotification($otp));
+        // Check if the user is an admin
+        if ($user->role === 'admin') {
+            return response()->json([
+                    'message' => 'User doesn\'t exist'
+                ], 422);
+        }
 
+        if ($user->is_archived) {
+            return response()->json([
+                'message' => 'Your account has been archived. Please contact support.',
+                'is_archived' => true
+            ], 403);
+        }
+
+        if (!$user->email_verified_at) {
+            // Check if there's a valid existing OTP
+            $hasValidOtp = $user->verification_code 
+                && $user->verification_expires_at 
+                && !$user->verification_expires_at->isPast();
+            
+            if (!$hasValidOtp) {
+                // Only generate new OTP if there isn't a valid one
+                $otp = $this->generateOtp();
+                $this->storeOtpOnUser($user, $otp);
+                $user->notify(new VerificationCodeNotification($otp));
+            } 
+        
             $user->tokens()->where('name', '!=', '')->delete();
             $verificationToken = $user->createToken('verification_token', ['verify'])->plainTextToken;
-
+        
             return response()->json([
                 'message' => 'Your email is not verified. Please check your email for the verification code.',
                 'token' => $verificationToken,

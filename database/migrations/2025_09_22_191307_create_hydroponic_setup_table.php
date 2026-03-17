@@ -37,7 +37,7 @@ return new class extends Migration
             ->nullable()
             ->default('good');
             $table->date('harvest_date')->nullable();
-            $table->string('water_amount', 50)->nullable();
+            $table->integer('water_amount')->nullable();
             $table->dateTime('setup_date')->nullable();
             $table->enum('status', ['active', 'inactive', 'maintenance'])->nullable()->default('active');
             $table->boolean('is_archived')->default(false);
