@@ -77,4 +77,12 @@ class Device extends Model
     {
         return $this->hasMany(FiltrationProcess::class);
     }
+
+    /**
+     * Hydroponic pump state (tracks pump 2 for watering)
+     */
+    public function hydroponic_pump_state()
+    {
+        return $this->hasOne(HydroponicPumpState::class);
+    }
 }

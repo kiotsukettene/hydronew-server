@@ -356,6 +356,179 @@ class FiltrationService
     }
 
     /**
+     * Handle pump 2 state changes
+     * State: 1=open, 0=closed
+     * Track in HydroponicPumpState since pump 2 is for hydroponics, not filtration.
+     */
+    public function handlePump2State(string $deviceSerial, int $stateValue): void
+    {
+        Log::info('FiltrationService: handlePump2State', [
+            'serial' => $deviceSerial,
+            'state' => $stateValue
+        ]);
+
+        try {
+            $device = Device::where('serial_number', $deviceSerial)->first();
+            if (!$device) {
+                return;
+            }
+
+            $pumpState = \App\Models\HydroponicPumpState::firstOrCreate(
+                ['device_id' => $device->id],
+                ['pump_2_state' => false]
+            );
+
+            $updateData = ['pump_2_state' => (bool)$stateValue];
+            
+            // If pump just closed (state=0), clear target and started_at
+            if ($stateValue === 0) {
+                $updateData['pump_2_target_liters'] = null;
+                $updateData['pump_2_started_at'] = null;
+            }
+            
+            $pumpState->update($updateData);
+
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: handlePump2State failed', [
+                'serial' => $deviceSerial,
+                'state' => $stateValue,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Handle pump 2 acknowledgment. When ack=1, toggle state and publish so frontend stays in sync.
+     * If pump opens and has target_liters, schedule auto-stop job.
+     * Track in HydroponicPumpState since pump 2 is for hydroponics, not filtration.
+     */
+    public function handlePump2Ack(string $deviceSerial): void
+    {
+        Log::info('FiltrationService: handlePump2Ack', ['serial' => $deviceSerial]);
+
+        try {
+            $device = Device::where('serial_number', $deviceSerial)->first();
+            if (!$device) {
+                Log::warning('FiltrationService: Device not found', ['serial' => $deviceSerial]);
+                return;
+            }
+
+            $pumpState = \App\Models\HydroponicPumpState::firstOrCreate(
+                ['device_id' => $device->id],
+                ['pump_2_state' => false]
+            );
+
+            $newState = $pumpState->pump_2_state ? 0 : 1;
+            $updateData = ['pump_2_state' => (bool)$newState];
+            
+            // If pump is opening (newState=1) and target_liters is set, record start time and schedule auto-stop
+            if ($newState === 1 && $pumpState->pump_2_target_liters > 0) {
+                $updateData['pump_2_started_at'] = now();
+                
+                // Calculate delay: target_liters / 6 liters per minute = minutes, convert to seconds
+                $delaySeconds = ($pumpState->pump_2_target_liters / 6) * 60;
+                
+                // Dispatch job to auto-stop pump 2 - pass device_id
+                \App\Jobs\StopPump2Job::dispatch($device->id)
+                    ->delay(now()->addSeconds($delaySeconds));
+                
+                Log::info('FiltrationService: Scheduled auto-stop for pump 2', [
+                    'serial' => $deviceSerial,
+                    'device_id' => $device->id,
+                    'target_liters' => $pumpState->pump_2_target_liters,
+                    'delay_seconds' => $delaySeconds,
+                    'stop_at' => now()->addSeconds($delaySeconds)->toDateTimeString()
+                ]);
+            }
+            
+            // If pump is closing (newState=0), clear target and started_at
+            if ($newState === 0) {
+                $updateData['pump_2_target_liters'] = null;
+                $updateData['pump_2_started_at'] = null;
+            }
+            
+            $pumpState->update($updateData);
+            $this->publishPump2State($deviceSerial, $newState);
+            
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: handlePump2Ack failed', [
+                'serial' => $deviceSerial,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    /**
+     * Handle pump 4 state changes
+     * State: 1=open, 0=closed
+     */
+    public function handlePump4State(string $deviceSerial, int $stateValue): void
+    {
+        Log::info('FiltrationService: handlePump4State', [
+            'serial' => $deviceSerial,
+            'state' => $stateValue
+        ]);
+
+        try {
+            $device = Device::where('serial_number', $deviceSerial)->first();
+            if (!$device) {
+                return;
+            }
+
+            $filtrationProcess = FiltrationProcess::where('device_id', $device->id)
+                ->whereIn('status', ['active', 'paused'])
+                ->first();
+
+            if ($filtrationProcess) {
+                $filtrationProcess->update(['pump_4_state' => (bool)$stateValue]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: handlePump4State failed', [
+                'serial' => $deviceSerial,
+                'state' => $stateValue,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Handle pump 4 acknowledgment. When ack=1, toggle state and publish so frontend stays in sync.
+     */
+    public function handlePump4Ack(string $deviceSerial): void
+    {
+        Log::info('FiltrationService: handlePump4Ack', ['serial' => $deviceSerial]);
+
+        try {
+            $device = Device::where('serial_number', $deviceSerial)->first();
+            if (!$device) {
+                Log::warning('FiltrationService: Device not found', ['serial' => $deviceSerial]);
+                return;
+            }
+
+            $filtrationProcess = FiltrationProcess::where('device_id', $device->id)
+                ->whereIn('status', ['active', 'paused'])
+                ->first();
+
+            if (!$filtrationProcess) {
+                Log::info('FiltrationService: No active or paused filtration process for pump 4 ack', ['serial' => $deviceSerial]);
+                return;
+            }
+
+            $newState = $filtrationProcess->pump_4_state ? 0 : 1;
+            $filtrationProcess->update(['pump_4_state' => (bool)$newState]);
+            $this->publishPump4State($deviceSerial, $newState);
+        } catch (\Exception $e) {
+            Log::error('FiltrationService: handlePump4Ack failed', [
+                'serial' => $deviceSerial,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    /**
      * Handle restart pump acknowledgment
      * Restart from Stage 2 (re-run stages 2-4)
      */
@@ -1048,6 +1221,57 @@ class FiltrationService
     }
 
     /**
+     * Publish Close Pump 4 command (CLOSE to mfc/{serial}/pump/4).
+     */
+    public function publishClosePump4Command(string $deviceSerial): void
+    {
+        $this->publishCommand("reservoir/{$deviceSerial}/pump/4", 'CLOSE');
+        Log::info('FiltrationService: Published close pump 4 command', ['serial' => $deviceSerial]);
+    }
+
+    /**
+     * Publish toggle Pump 2 command based on current state.
+     * Optionally set target liters for auto-stop (pump rate: 6 liters/minute).
+     * Track in HydroponicPumpState since pump 2 is for hydroponics, not filtration.
+     */
+    public function publishTogglePump2Command(string $deviceSerial, ?float $targetLiters = null): void
+    {
+        $device = Device::where('serial_number', $deviceSerial)->first();
+        if (!$device) {
+            Log::warning('FiltrationService: Device not found for pump 2 toggle', ['serial' => $deviceSerial]);
+            return;
+        }
+
+        $pumpState = \App\Models\HydroponicPumpState::firstOrCreate(
+            ['device_id' => $device->id],
+            ['pump_2_state' => false]
+        );
+
+        $command = 'OPEN';
+        if ($pumpState->pump_2_state) {
+            $command = 'CLOSE';
+        }
+
+        // If opening pump and target_liters is provided, store it for auto-stop
+        if ($command === 'OPEN' && $targetLiters > 0) {
+            $pumpState->update(['pump_2_target_liters' => $targetLiters]);
+            
+            Log::info('FiltrationService: Set pump 2 target liters', [
+                'serial' => $deviceSerial,
+                'target_liters' => $targetLiters,
+                'estimated_minutes' => round($targetLiters / 6, 2)
+            ]);
+        }
+
+        $this->publishCommand("hydroponics/{$deviceSerial}/pump/2", $command);
+        Log::info('FiltrationService: Published toggle pump 2 command', [
+            'serial' => $deviceSerial,
+            'command' => $command,
+            'target_liters' => $targetLiters
+        ]);
+    }
+
+    /**
      * Publish valve 1 state so frontend can sync UI (e.g. when only ack received, no state from IoT)
      */
     public function publishValve1State(string $deviceSerial, int $stateValue): void
@@ -1068,6 +1292,32 @@ class FiltrationService
         $topic = "mfc_fallback/{$deviceSerial}/valve/2/state";
         $this->mqttService->publish($topic, (string)$stateValue, 1);
         Log::info('FiltrationService: Published valve 2 state', [
+            'topic' => $topic,
+            'state' => $stateValue
+        ]);
+    }
+
+    /**
+     * Publish pump 2 state so frontend can sync UI when ack received.
+     */
+    public function publishPump2State(string $deviceSerial, int $stateValue): void
+    {
+        $topic = "hydroponics/{$deviceSerial}/pump/2/state";
+        $this->mqttService->publish($topic, (string)$stateValue, 1);
+        Log::info('FiltrationService: Published pump 2 state', [
+            'topic' => $topic,
+            'state' => $stateValue
+        ]);
+    }
+
+    /**
+     * Publish pump 4 state so frontend can sync UI when ack received.
+     */
+    public function publishPump4State(string $deviceSerial, int $stateValue): void
+    {
+        $topic = "reservoir/{$deviceSerial}/pump/4/state";
+        $this->mqttService->publish($topic, (string)$stateValue, 1);
+        Log::info('FiltrationService: Published pump 4 state', [
             'topic' => $topic,
             'state' => $stateValue
         ]);

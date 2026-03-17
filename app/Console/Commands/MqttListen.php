@@ -36,7 +36,7 @@ class MqttListen extends Command
         $config = config("mqtt-client.connections.$connectionName");
 
         // Keep-alive: 120 seconds to reduce "No ping response in time" on slow/unstable networks
-        $keepAlive = (int) env('MQTT_KEEP_ALIVE_INTERVAL', 120);
+        $keepAlive = (int) env('MQTT_KEEP_ALIVE_INTERVAL', 60);
 
         // Persistent session: broker keeps subscriptions and delivers messages that arrived while offline
         $usePersistentSession = filter_var(env('MQTT_USE_PERSISTENT_SESSION', true), FILTER_VALIDATE_BOOLEAN);
@@ -94,6 +94,9 @@ class MqttListen extends Command
                     "reservoir_fallback/+/pump/1/ack",
                     "reservoir_fallback/+/pump/1/state",
                     "reservoir/+/pump/4/ack",
+                    "reservoir/+/pump/4/state",
+                    "hydroponics/+/pump/2/ack",
+                    "hydroponics/+/pump/2/state",
                 ];
 
                 foreach ($topics as $topic) {
@@ -221,6 +224,9 @@ class MqttListen extends Command
         // reservoir_fallback/{serial}/pump/1/ack
         // reservoir_fallback/{serial}/pump/1/state
         // reservoir/{serial}/pump/4/ack
+        // reservoir/{serial}/pump/4/state
+        // hydroponics/{serial}/pump/2/ack
+        // hydroponics/{serial}/pump/2/state
 
         // Parse pump/3 ack: only process when ack=1 (command executed). ack=0 means did not execute.
         if (preg_match('#^mfc/([^/]+)/pump/3/ack$#', $topic, $matches)) {
@@ -286,7 +292,7 @@ class MqttListen extends Command
             return;
         }
 
-        // Parse pump/4 ack: only log when ack=1 (command executed). ack=0 means did not execute.
+        // Parse pump/4 ack: toggle state and publish when ack=1.
         if (preg_match('#^reservoir/([^/]+)/pump/4/ack$#', $topic, $matches)) {
             $serial = $matches[1];
             if ($value !== 1) {
@@ -294,6 +300,35 @@ class MqttListen extends Command
                 return;
             }
             $this->info("✓ Pump 4 ack received for device {$serial}");
+            $this->filtrationService->handlePump4Ack($serial);
+            return;
+        }
+
+        // Parse pump/4 state
+        if (preg_match('#^reservoir/([^/]+)/pump/4/state$#', $topic, $matches)) {
+            $serial = $matches[1];
+            $this->info("✓ Pump 4 state={$value} for device {$serial}");
+            $this->filtrationService->handlePump4State($serial, $value);
+            return;
+        }
+
+        // Parse pump/2 ack: toggle state and publish when ack=1.
+        if (preg_match('#^hydroponics/([^/]+)/pump/2/ack$#', $topic, $matches)) {
+            $serial = $matches[1];
+            if ($value !== 1) {
+                $this->warn("⚠ Pump 2 ack=0 for device {$serial} (command did not execute, skipping)");
+                return;
+            }
+            $this->info("✓ Pump 2 ack received for device {$serial}");
+            $this->filtrationService->handlePump2Ack($serial);
+            return;
+        }
+
+        // Parse pump/2 state
+        if (preg_match('#^hydroponics/([^/]+)/pump/2/state$#', $topic, $matches)) {
+            $serial = $matches[1];
+            $this->info("✓ Pump 2 state={$value} for device {$serial}");
+            $this->filtrationService->handlePump2State($serial, $value);
             return;
         }
 
