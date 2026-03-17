@@ -181,16 +181,15 @@ class FiltrationCommandController extends Controller
     }
 
     /**
-     * Toggle Pump 2 – toggle between OPEN and CLOSE to hydroponics/{serial}/pump/2.
-     * If pump is open, send CLOSE. If pump is closed, send OPEN.
-     * Accepts optional target_liters parameter for auto-stop (pump rate: 6 liters/minute).
+     * Start Pump 2 with target liters for auto-stop.
+     * Explicitly starts the pump (always sends OPEN command).
      * 
-     * Request body (optional):
+     * Request body (required):
      * {
-     *   "target_liters": 5  // Can be 5, 10, 15, or any positive number
+     *   "target_liters": 5  // Required: water liters needed for hydroponic setup
      * }
      */
-    public function togglePump2(Request $request): JsonResponse
+    public function startPump2(Request $request): JsonResponse
     {
         $device = $this->resolveDevice($request);
         if (!$device) {
@@ -200,26 +199,53 @@ class FiltrationCommandController extends Controller
             ], 404);
         }
 
-        // Validate target_liters if provided
+        // Validate target_liters (required for start)
         $validated = $request->validate([
-            'target_liters' => 'nullable|numeric|min:0.1|max:1000',
+            'target_liters' => 'required|numeric|min:0.1|max:1000',
         ]);
 
-        $targetLiters = $validated['target_liters'] ?? null;
+        $targetLiters = $validated['target_liters'];
 
-        $this->filtrationService->publishTogglePump2Command($device->serial_number, $targetLiters);
+        $this->filtrationService->publishStartPump2Command($device->serial_number, $targetLiters);
 
-        $message = 'Pump 2 toggle command sent. State will update when device acknowledges.';
-        if ($targetLiters > 0) {
-            $estimatedMinutes = round($targetLiters / 6, 2);
-            $message .= " Auto-stop scheduled after {$targetLiters} liters (~{$estimatedMinutes} minutes).";
+        $estimatedMinutes = round($targetLiters / 6, 2);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Pump 2 started. Auto-stop scheduled after {$targetLiters} liters (~{$estimatedMinutes} minutes).",
+            'target_liters' => $targetLiters,
+            'estimated_minutes' => $estimatedMinutes,
+        ], 200);
+    }
+
+    /**
+     * Stop Pump 2 manually.
+     * Checks if pump is running, then sends CLOSE command.
+     * If auto-stop job is scheduled, it will check pump state and skip if already stopped.
+     * No request body needed.
+     */
+    public function stopPump2(Request $request): JsonResponse
+    {
+        $device = $this->resolveDevice($request);
+        if (!$device) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No device found. Pair a device first or provide a valid serial.',
+            ], 404);
+        }
+
+        $wasStopped = $this->filtrationService->publishStopPump2Command($device->serial_number);
+
+        if (!$wasStopped) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Pump 2 is already stopped.',
+            ], 200);
         }
 
         return response()->json([
             'success' => true,
-            'message' => $message,
-            'target_liters' => $targetLiters,
-            'estimated_minutes' => $targetLiters ? round($targetLiters / 6, 2) : null,
+            'message' => 'Pump 2 stop command sent. State will update when device acknowledges.',
         ], 200);
     }
 }
