@@ -6,11 +6,11 @@ import { Button } from "./button";
 export function HeroSection() {
   const slides = useMemo(
     () => [
-      "/images/monitor.png",
-      "/images/hydroponics.png",
-      "/images/filtration.png",
-      "/images/dashboard.png",
-      "/images/account.png",
+      "/images/mobile-monitoring.png",
+      "/images/mobile-hydroponics.png",
+      "/images/mobile-filtration.png",
+      "/images/mobile-dashboard.png",
+      "/images/mobile-account.png",
     ],
     []
   );
