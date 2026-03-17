@@ -10,6 +10,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class StopPump2Job implements ShouldQueue
 {
@@ -66,6 +67,36 @@ class StopPump2Job implements ShouldQueue
                 "hydroponics/{$device->serial_number}/pump/2",
                 'CLOSE'
             );
+
+            // Deduct used liters from latest successful treatment report for this device
+            if ($pumpState->pump_2_target_liters > 0) {
+                DB::transaction(function () use ($device, $pumpState) {
+                    $latestReport = \App\Models\TreatmentReport::where('device_id', $device->id)
+                        ->where('final_status', 'success')
+                        ->orderByDesc('id')
+                        ->first();
+
+                    if (!$latestReport) {
+                        return;
+                    }
+
+                    $currentTotal = (int) ($latestReport->total_water_liters ?? 0);
+                    $deductLiters = (int) round($pumpState->pump_2_target_liters);
+                    $newTotal = max(0, $currentTotal - $deductLiters);
+
+                    $latestReport->update([
+                        'total_water_liters' => $newTotal,
+                    ]);
+
+                    Log::info('StopPump2Job: Deducted hydroponics water from total_water_liters', [
+                        'device_id' => $device->id,
+                        'latest_treatment_report_id' => $latestReport->id,
+                        'deduct_liters' => $deductLiters,
+                        'previous_total' => $currentTotal,
+                        'new_total' => $newTotal,
+                    ]);
+                });
+            }
 
             Log::info('StopPump2Job: Auto-stop command sent for pump 2', [
                 'device_id' => $this->deviceId,

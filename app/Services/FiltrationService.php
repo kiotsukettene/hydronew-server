@@ -1094,10 +1094,24 @@ class FiltrationService
                     $this->publishStageState($device->serial_number, 4, 'passed');
                 }
 
+                // Each successful treatment always produces 10 liters.
+                $currentWaterLiters = 10;
+
+                // Find the last successful treatment for this device (excluding current one)
+                $lastReport = \App\Models\TreatmentReport::where('device_id', $device->id)
+                    ->where('final_status', 'success')
+                    ->where('id', '<>', $filtrationProcess->treatment_report_id)
+                    ->orderByDesc('id')
+                    ->first();
+
+                $previousTotal = $lastReport?->total_water_liters ?? 0;
+
                 $filtrationProcess->treatment_report->update([
                     'final_status' => 'success',
                     'end_time' => now(),
                     'total_cycles' => $filtrationProcess->restart_count + 1,
+                    'water_liters' => $currentWaterLiters,
+                    'total_water_liters' => $previousTotal + $currentWaterLiters,
                 ]);
 
                 $filtrationProcess->update(['status' => 'completed']);
@@ -1271,6 +1285,42 @@ class FiltrationService
             return false;
         }
 
+        // Deduct the *actual* liters pumped so far based on runtime (6 L/min).
+        // This supports manual stop before reaching target liters.
+        $deductLiters = 0;
+        if ($pumpState->pump_2_started_at) {
+            $elapsedSeconds = max(0, $pumpState->pump_2_started_at->diffInSeconds(now()));
+            $deductLiters = (int) round(($elapsedSeconds / 60) * 6);
+        }
+
+        if ($deductLiters > 0) {
+            DB::transaction(function () use ($device, $deductLiters) {
+                $latestReport = TreatmentReport::where('device_id', $device->id)
+                    ->where('final_status', 'success')
+                    ->orderByDesc('id')
+                    ->first();
+
+                if (!$latestReport) {
+                    return;
+                }
+
+                $currentTotal = (int) ($latestReport->total_water_liters ?? 0);
+                $newTotal = max(0, $currentTotal - $deductLiters);
+
+                $latestReport->update([
+                    'total_water_liters' => $newTotal,
+                ]);
+
+                Log::info('FiltrationService: Deducted manual pump 2 usage from total_water_liters', [
+                    'device_id' => $device->id,
+                    'latest_treatment_report_id' => $latestReport->id,
+                    'deduct_liters' => $deductLiters,
+                    'previous_total' => $currentTotal,
+                    'new_total' => $newTotal,
+                ]);
+            });
+        }
+
         // Pump is running, send CLOSE command
         $this->publishCommand("hydroponics/{$deviceSerial}/pump/2", 'CLOSE');
         
@@ -1278,7 +1328,8 @@ class FiltrationService
             'serial' => $deviceSerial,
             'device_id' => $device->id,
             'target_liters' => $pumpState->pump_2_target_liters,
-            'started_at' => $pumpState->pump_2_started_at
+            'started_at' => $pumpState->pump_2_started_at,
+            'deduct_liters' => $deductLiters,
         ]);
         
         return true;
