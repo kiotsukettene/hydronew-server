@@ -1382,6 +1382,23 @@ class FiltrationService
     /**
      * Publish stage state for frontend UI sync
      */
+    private function publishStageState(string $deviceSerial, int $stageNumber, string $status): void
+    {
+        $topic = "filtration/{$deviceSerial}/stage/{$stageNumber}/state";
+
+        $payload = [
+            'stage' => $stageNumber,
+            'status' => $status,
+        ];
+
+        $this->mqttService->publish($topic, $payload, 1);
+
+        Log::info('FiltrationService: Published stage state', [
+            'topic' => $topic,
+            'stage' => $stageNumber,
+            'status' => $status,
+        ]);
+    }
 
     /**
      * Notify all users associated with a device
