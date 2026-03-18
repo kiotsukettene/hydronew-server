@@ -8,6 +8,7 @@ use App\Models\Device;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
 use App\Models\HydroponicYieldGrade;
+use App\Services\HealthStatusService;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
@@ -16,10 +17,14 @@ use Carbon\Carbon;
 class HydroponicSetupController extends Controller
 {
     protected NotificationService $notificationService;
+    protected HealthStatusService $healthStatusService;
 
-    public function __construct(NotificationService $notificationService)
-    {
+    public function __construct(
+        NotificationService $notificationService,
+        HealthStatusService $healthStatusService
+    ) {
         $this->notificationService = $notificationService;
+        $this->healthStatusService = $healthStatusService;
     }
 
     public function index(Request $request)
@@ -44,7 +49,7 @@ class HydroponicSetupController extends Controller
             ->take($limit)
             ->get();
 
-        // Calculate growth_percentage, plant_age, days_left, and growth_stage for each setup
+        // Calculate growth_percentage, plant_age, days_left, growth_stage, and health_status for each setup
         $setups->transform(function ($setup) {
             $setupDate = Carbon::parse($setup->setup_date);
             $now = Carbon::now();
@@ -82,10 +87,25 @@ class HydroponicSetupController extends Controller
                 $this->notificationService->notifyGrowthStageChange($setup, $oldStage, $growthStage);
             }
 
+            // Calculate health_status based on sensor readings
+            $healthStatus = $this->healthStatusService->calculateHealthStatus($setup);
+            
+            // Update health_status in database if it changed and send notification
+            $oldHealthStatus = $setup->health_status;
+            if ($oldHealthStatus !== $healthStatus && $setup->harvest_status !== 'harvested') {
+                $setup->update(['health_status' => $healthStatus]);
+                
+                // Send health status change notification (only if changed to poor)
+                if ($healthStatus === 'poor') {
+                    $this->notificationService->notifyHealthStatusChange($setup, $oldHealthStatus, $healthStatus);
+                }
+            }
+
             $setup->plant_age = $plantAge;
             $setup->days_left = $daysLeft;
             $setup->growth_percentage = $growthPercentage;
             $setup->growth_stage = $growthStage;
+            $setup->health_status = $healthStatus;
 
             return $setup;
         });
@@ -127,12 +147,28 @@ class HydroponicSetupController extends Controller
             $this->notificationService->notifyGrowthStageChange($setup, $oldStage, $growthStage);
         }
 
+        // Calculate health_status based on sensor readings
+        $healthStatus = $this->healthStatusService->calculateHealthStatus($setup);
+        
+        // Update health_status in database if it changed and send notification
+        $oldHealthStatus = $setup->health_status;
+        if ($oldHealthStatus !== $healthStatus && $setup->harvest_status !== 'harvested') {
+            $setup->update(['health_status' => $healthStatus]);
+            $setup->health_status = $healthStatus;
+            
+            // Send health status change notification (only if changed to poor)
+            if ($healthStatus === 'poor') {
+                $this->notificationService->notifyHealthStatusChange($setup, $oldHealthStatus, $healthStatus);
+            }
+        }
+
         return response()->json([
             'status' => 'success',
             'data' => array_merge($setup->toArray(), [
                 'plant_age' => $plantAge,
                 'days_left' => $daysLeft,
                 'growth_stage' => $growthStage,
+                'health_status' => $healthStatus,
             ]),
         ]);
     }

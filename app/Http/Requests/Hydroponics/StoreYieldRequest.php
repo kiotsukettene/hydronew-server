@@ -30,7 +30,7 @@ class StoreYieldRequest extends FormRequest
 
         return [
             'total_count' => "required|integer|min:0|max:{$maxCrops}",
-            'total_weight' => 'nullable|numeric|min:0',
+            'total_weight' => 'nullable|numeric|min:0|max:100000',
             'notes' => 'nullable|string|max:1000',
             
             // Grades array validation

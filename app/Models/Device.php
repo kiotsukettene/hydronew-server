@@ -19,6 +19,11 @@ class Device extends Model
         'model',
         'firmware_version',
         'status',
+        'last_heartbeat_at',
+    ];
+
+    protected $casts = [
+        'last_heartbeat_at' => 'datetime',
     ];
 
     /**
@@ -63,5 +68,21 @@ class Device extends Model
     public function hydroponic_setups()
     {
         return $this->hasMany(HydroponicSetup::class);
+    }
+
+    /**
+     * Active or paused filtration process (one per device at a time).
+     */
+    public function filtration_processes()
+    {
+        return $this->hasMany(FiltrationProcess::class);
+    }
+
+    /**
+     * Hydroponic pump state (tracks pump 2 for watering)
+     */
+    public function hydroponic_pump_state()
+    {
+        return $this->hasOne(HydroponicPumpState::class);
     }
 }

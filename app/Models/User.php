@@ -22,11 +22,13 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
  * @property string $first_name
  * @property string $last_name
  * @property string $email
+ * @property string $role
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $profile_picture
  * @property string|null $address
  * @property bool|null $first_time_login
+ * @property bool $is_archived
  * @property string|null $remember_token
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -59,6 +61,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'first_name',
         'last_name',
         'email',
+        'role',
         'email_verified_at',
         'password',
         'profile_picture',
@@ -68,6 +71,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'verification_code',
         'verification_expires_at',
         'last_otp_sent_at',
+        'is_archived',
         'remember_token'
     ];
 

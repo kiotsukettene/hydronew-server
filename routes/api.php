@@ -18,6 +18,7 @@ use App\Http\Controllers\Hydroponics\HydroponicSetupController;
 use App\Http\Controllers\Hydroponics\HydroponicYieldController;
 use App\Http\Controllers\TipsSuggestions\TipsController;
 use App\Http\Controllers\Treatment\TreatmentController;
+use App\Http\Controllers\Filtration\FiltrationCommandController;
 use App\Models\HydroponicSetup;
 use App\Models\HydroponicYield;
 use Illuminate\Support\Facades\Broadcast;
@@ -142,10 +143,11 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::post('v1/hydroponic-setups/{setup}/mark-harvested',[HydroponicSetupController::class, 'markAsHarvested']);
 
     Route::get('v1/hydroponic-yields', [HydroponicYieldController::class, 'index']);
-    Route::get('v1/hydroponic-yields/{setup}', [HydroponicYieldController::class, 'show']);
+    Route::get('v1/hydroponic-yields/{setup}/yield', [HydroponicYieldController::class, 'getSetupYield']);
     Route::post('v1/hydroponic-yields/{setup}/store', [HydroponicYieldController::class, 'storeYield']);
+    Route::get('v1/hydroponic-yields/{setup}', [HydroponicYieldController::class, 'show']);
 
-    Route::get('v1/tips-suggestion', [TipsController::class, 'generateTips']);
+    Route::post('v1/tips/rag-insights', [TipsController::class, 'generateRagInsights']);
 
     Route::get('v1/help-center', [HelpCenterController::class, 'index']);
 
@@ -153,7 +155,20 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::post('v1/feedback', [FeedbackController::class, 'store']);
     Route::get('v1/feedback', [FeedbackController::class, 'index']);
 
+    Route::get('v1/treatment/latest', [TreatmentController::class, 'getLatestTreatmentReport']);
+    Route::get('v1/treatment/reports', [TreatmentController::class, 'getAllTreatmentReports']);
     Route::post('v1/treatment', [TreatmentController::class, 'saveTreatment']);
+
+    // Filtration commands (frontend calls these instead of publishing MQTT directly; backend publishes command, then state on ack)
+    Route::post('v1/filtration/commands/start-process', [FiltrationCommandController::class, 'startProcess']);
+    Route::post('v1/filtration/commands/open-valve-1', [FiltrationCommandController::class, 'openValve1']);
+    Route::post('v1/filtration/commands/close-valve-1', [FiltrationCommandController::class, 'closeValve1']);
+    Route::post('v1/filtration/commands/open-drain-valve', [FiltrationCommandController::class, 'openDrainValve']);
+    Route::post('v1/filtration/commands/close-drain-valve', [FiltrationCommandController::class, 'closeDrainValve']);
+    Route::post('v1/filtration/commands/restart', [FiltrationCommandController::class, 'restart']);
+    Route::post('v1/filtration/commands/open-pump-4', [FiltrationCommandController::class, 'openPump4']);
+    Route::post('v1/filtration/commands/start-pump-2', [FiltrationCommandController::class, 'startPump2']);
+    Route::post('v1/filtration/commands/stop-pump-2', [FiltrationCommandController::class, 'stopPump2']);
     Route::put('v1/treatment/update-treatment', [TreatmentController::class, 'updateTreatment']);
     Route::post('v1/treatment/stages', [TreatmentController::class, 'saveTreatmentStage']);
     Route::put('v1/treatment/update-stages', [TreatmentController::class, 'updateTreatmentStage']);

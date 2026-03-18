@@ -13,9 +13,9 @@ beforeEach(function () {
     ]);
 
     $this->otherUser = User::factory()->create();
-    
+
     $this->device = Device::factory()->create();
-    
+
     // Attach the device to the user (many-to-many relationship)
     $this->user->devices()->attach($this->device->id);
 });
@@ -214,7 +214,7 @@ describe('Store Hydroponic Setup', function () {
             'target_ph_max' => 6.5,
             'target_tds_min' => 800,
             'target_tds_max' => 1200,
-            'water_amount' => '100 liters',
+            'water_amount' => 100,
             'harvest_date' => now()->addDays(30)->toDateString(),
         ];
 
@@ -254,7 +254,7 @@ describe('Store Hydroponic Setup', function () {
             'target_ph_max' => 7.0,
             'target_tds_min' => 1000,
             'target_tds_max' => 1500,
-            'water_amount' => '200 liters',
+            'water_amount' => 100,
             'harvest_date' => $harvestDate->toDateString(),
         ];
 
