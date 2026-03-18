@@ -220,7 +220,7 @@ export default function RadialOrbitalTimeline({
                   w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center
                   ${
                     isExpanded
-                      ? "bg-green-600 text-white"
+                      ? "bg-green-400 text-white"
                       : isRelated
                       ? "bg-green-400 text-white"
                       : "bg-gray-800 text-white"
@@ -240,8 +240,8 @@ export default function RadialOrbitalTimeline({
                 </div>
                 <div
                   className={`
-                  absolute top-12 sm:top-14 md:top-16 whitespace-nowrap
-                  text-xs sm:text-sm font-semibold tracking-wider
+                  absolute left-1/2 -translate-x-1/2 top-[3.25rem] sm:top-[3.75rem] md:top-[4.25rem] whitespace-nowrap
+                  text-center text-xs sm:text-sm font-semibold tracking-wider
                   transition-all duration-300
                   ${isExpanded ? "text-gray-900 scale-110 sm:scale-125" : "text-gray-700"}
                 `}>

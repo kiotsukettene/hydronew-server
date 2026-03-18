@@ -107,7 +107,7 @@ const Download = () => {
                   {/* Screen Content - Dashboard Image */}
                   <div className="bg-white rounded-[2.5rem] overflow-hidden">
                     <img 
-                      src="/images/dashboard.png" 
+                      src="/images/mobile-dashboard.png" 
                       alt="HydroNew Dashboard" 
                       className="w-full h-full object-cover object-top"
                     />

@@ -6,21 +6,28 @@ import { Button } from "./button";
 export function HeroSection() {
   const slides = useMemo(
     () => [
-      "/images/monitor.png",
-      "/images/hydroponics.png",
-      "/images/filtration.png",
-      "/images/dashboard.png",
-      "/images/account.png",
+      "/images/mobile-monitoring.png",
+      "/images/mobile-hydroponics.png",
+      "/images/mobile-filtration.png",
+      "/images/mobile-dashboard.png",
+      "/images/mobile-account.png",
     ],
     []
   );
 
   const [index, setIndex] = useState(3);
   const [revealSides, setRevealSides] = useState(false);
+  const [direction, setDirection] = useState("next");
   const total = slides.length;
 
-  const next = () => setIndex((prev) => (prev + 1) % total);
-  const prev = () => setIndex((prev) => (prev - 1 + total) % total);
+  const next = () => {
+    setDirection("next");
+    setIndex((prev) => (prev + 1) % total);
+  };
+  const prev = () => {
+    setDirection("prev");
+    setIndex((prev) => (prev - 1 + total) % total);
+  };
 
   const handleLearnMore = () => {
     const aboutSection = document.querySelector('#about');
@@ -43,6 +50,30 @@ export function HeroSection() {
     handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const id = "hero-slide-keyframes";
+    if (document.getElementById(id)) return;
+    const style = document.createElement("style");
+    style.id = id;
+    style.innerHTML = `
+      @keyframes hero-slide-next {
+        0%   { transform: translateX(30px); opacity: 0; }
+        40%  { opacity: 0.6; }
+        100% { transform: translateX(0); opacity: 1; }
+      }
+      @keyframes hero-slide-prev {
+        0%   { transform: translateX(-30px); opacity: 0; }
+        40%  { opacity: 0.6; }
+        100% { transform: translateX(0); opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      style.remove();
+    };
   }, []);
 
   return (
@@ -100,7 +131,11 @@ export function HeroSection() {
           </div>
 
           {/* Main phone mockup (responsive scaling) */}
-          <div className="scale-[0.50] sm:scale-[0.60] md:scale-[0.70] transition-all duration-500 ease-in-out">
+          <div
+            key={`center-${index}`}
+            className="scale-[0.50] sm:scale-[0.60] md:scale-[0.70]"
+            style={{ animation: `hero-slide-${direction} 800ms cubic-bezier(0.22, 0.61, 0.36, 1) both` }}
+          >
            <IPhoneMockup
   color="space-black"
   wallpaper={slides[index]}
