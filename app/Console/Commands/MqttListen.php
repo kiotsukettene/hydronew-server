@@ -13,8 +13,8 @@ use Illuminate\Support\Facades\Log;
 
 class MqttListen extends Command
 {
-    protected $signature = 'mqtt:listen {--device-id=1 : Device ID to associate with readings}';
-    protected $description = 'Listen to MQTT sensor topics continuously (runs forever until process is stopped; auto-reconnects on disconnect)';
+    protected $signature = 'mqtt:listen {--device-id=1 : Device ID to listen for}';
+    protected $description = 'Listen to MQTT topics for a specific device (runs forever until process is stopped; only processes messages for the specified device-id)';
 
     protected $sensorHandler;
     protected $filtrationService;
@@ -159,7 +159,7 @@ class MqttListen extends Command
             if ($topic === 'hydronew/ai-classification/backend') {
                 $this->handleAIClassificationTopic($message);
             } elseif (preg_match('#^biotech/([^/]+)/heartbeat$#', $topic, $matches)) {
-                $this->handleHeartbeatTopic($matches[1]);
+                $this->handleHeartbeatTopic($matches[1], $message);
             } else {
                 $this->handleFiltrationTopic($topic, $message);
             }
@@ -191,22 +191,57 @@ class MqttListen extends Command
             return;
         }
 
+        // Check if this message is for the device this listener is monitoring
+        $serialNumber = $data['device_serial_number'] ?? null;
+        if ($serialNumber && !$this->isListenerDevice($serialNumber)) {
+            $this->line("ℹ Ignoring AI classification for device {$serialNumber} - not linked to this listener");
+            return;
+        }
+
         $this->sensorHandler->handleAIClassificationPayload($data);
         $this->info("✓ Processed AI classification data");
     }
 
     /**
-     * Handle biotech/{serial}/heartbeat – device is online.
+     * Handle biotech/{serial}/heartbeat – device status update.
+     * IoT publishes heartbeat every 45 seconds with payload "1" (online) or "0" (offline).
      * Updates device status and last_heartbeat_at; if a paused treatment has water in anode, re-opens valve 1.
-     * Dispatches a job to run in 90s: if no newer heartbeat by then, device is marked offline.
+     * For online status: Dispatches a job to run in 60s to check if device went offline.
+     * Only processes heartbeat if the device is linked to this listener's device_id.
      */
-    protected function handleHeartbeatTopic(string $serial): void
+    protected function handleHeartbeatTopic(string $serial, string $message): void
     {
-        $this->info("✓ Heartbeat received for device {$serial}");
-        $this->filtrationService->onDeviceOnline($serial);
+        $device = $this->isListenerDevice($serial);
+        
+        if (!$device) {
+            $this->line("ℹ Ignoring heartbeat for device {$serial} - not linked to this listener");
+            return;
+        }
 
-        CheckDeviceOfflineJob::dispatch($serial)
-            ->delay(now()->addSeconds(90));
+        // Parse heartbeat payload: 1 = online, 0 = offline
+        $heartbeatValue = (int)trim($message);
+        
+        if ($heartbeatValue === 1) {
+            // Device is online
+            $this->info("✓ Heartbeat received for device {$serial} (status: online)");
+            $this->filtrationService->onDeviceOnline($serial);
+            
+            // Schedule offline check in 60 seconds
+            CheckDeviceOfflineJob::dispatch($serial)
+                ->delay(now()->addSeconds(60));
+                
+        } elseif ($heartbeatValue === 0) {
+            // Device explicitly went offline
+            $this->warn("⚠ Device {$serial} reported offline status");
+            
+            // Update device status to offline
+            $device->update(['status' => 'offline']);
+            $this->filtrationService->onDeviceOffline($device);
+            
+        } else {
+            // Invalid heartbeat value
+            $this->warn("⚠ Invalid heartbeat value '{$message}' for device {$serial} (expected 0 or 1)");
+        }
     }
 
     protected function handleFiltrationTopic(string $topic, string $message): void
@@ -231,6 +266,9 @@ class MqttListen extends Command
         // Parse pump/3 ack: only process when ack=1 (command executed). ack=0 means did not execute.
         if (preg_match('#^mfc/([^/]+)/pump/3/ack$#', $topic, $matches)) {
             $serial = $matches[1];
+            if (!$this->isListenerDevice($serial)) {
+                return;
+            }
             if ($value !== 1) {
                 $this->warn("⚠ Pump 3 ack=0 for device {$serial} (command did not execute, skipping)");
                 return;
@@ -243,6 +281,9 @@ class MqttListen extends Command
         // Parse valve/1 ack: when ack=1, update state and publish so frontend stays in sync (in case IoT didn't send state)
         if (preg_match('#^mfc/([^/]+)/valve/1/ack$#', $topic, $matches)) {
             $serial = $matches[1];
+            if (!$this->isListenerDevice($serial)) {
+                return;
+            }
             if ($value !== 1) {
                 $this->warn("⚠ Valve 1 ack=0 for device {$serial} (command did not execute, skipping)");
                 return;
@@ -255,6 +296,9 @@ class MqttListen extends Command
         // Parse valve/1 state (we track state changes from IoT)
         if (preg_match('#^mfc/([^/]+)/valve/1/state$#', $topic, $matches)) {
             $serial = $matches[1];
+            if (!$this->isListenerDevice($serial)) {
+                return;
+            }
             $this->info("✓ Valve 1 state={$value} for device {$serial}");
             $this->filtrationService->handleValve1State($serial, $value);
             return;
@@ -263,6 +307,9 @@ class MqttListen extends Command
         // Parse valve/2 ack (drain valve): when ack=1, update state and publish so frontend stays in sync
         if (preg_match('#^mfc_fallback/([^/]+)/valve/2/ack$#', $topic, $matches)) {
             $serial = $matches[1];
+            if (!$this->isListenerDevice($serial)) {
+                return;
+            }
             if ($value !== 1) {
                 $this->warn("⚠ Valve 2 (drain) ack=0 for device {$serial} (command did not execute, skipping)");
                 return;
@@ -275,6 +322,9 @@ class MqttListen extends Command
         // Parse valve/2 state (drain valve)
         if (preg_match('#^mfc_fallback/([^/]+)/valve/2/state$#', $topic, $matches)) {
             $serial = $matches[1];
+            if (!$this->isListenerDevice($serial)) {
+                return;
+            }
             $this->info("✓ Valve 2 (drain) state={$value} for device {$serial}");
             $this->filtrationService->handleValve2State($serial, $value);
             return;
@@ -283,6 +333,9 @@ class MqttListen extends Command
         // Parse restart pump/1 ack: only process when ack=1 (command executed). ack=0 means did not execute.
         if (preg_match('#^reservoir_fallback/([^/]+)/pump/1/ack$#', $topic, $matches)) {
             $serial = $matches[1];
+            if (!$this->isListenerDevice($serial)) {
+                return;
+            }
             if ($value !== 1) {
                 $this->warn("⚠ Restart pump ack=0 for device {$serial} (command did not execute, skipping)");
                 return;
@@ -295,6 +348,9 @@ class MqttListen extends Command
         // Parse pump/4 ack: toggle state and publish when ack=1.
         if (preg_match('#^reservoir/([^/]+)/pump/4/ack$#', $topic, $matches)) {
             $serial = $matches[1];
+            if (!$this->isListenerDevice($serial)) {
+                return;
+            }
             if ($value !== 1) {
                 $this->warn("⚠ Pump 4 ack=0 for device {$serial} (command did not execute, skipping)");
                 return;
@@ -307,6 +363,9 @@ class MqttListen extends Command
         // Parse pump/4 state
         if (preg_match('#^reservoir/([^/]+)/pump/4/state$#', $topic, $matches)) {
             $serial = $matches[1];
+            if (!$this->isListenerDevice($serial)) {
+                return;
+            }
             $this->info("✓ Pump 4 state={$value} for device {$serial}");
             $this->filtrationService->handlePump4State($serial, $value);
             return;
@@ -315,6 +374,9 @@ class MqttListen extends Command
         // Parse pump/2 ack: toggle state and publish when ack=1.
         if (preg_match('#^hydroponics/([^/]+)/pump/2/ack$#', $topic, $matches)) {
             $serial = $matches[1];
+            if (!$this->isListenerDevice($serial)) {
+                return;
+            }
             if ($value !== 1) {
                 $this->warn("⚠ Pump 2 ack=0 for device {$serial} (command did not execute, skipping)");
                 return;
@@ -327,6 +389,9 @@ class MqttListen extends Command
         // Parse pump/2 state
         if (preg_match('#^hydroponics/([^/]+)/pump/2/state$#', $topic, $matches)) {
             $serial = $matches[1];
+            if (!$this->isListenerDevice($serial)) {
+                return;
+            }
             $this->info("✓ Pump 2 state={$value} for device {$serial}");
             $this->filtrationService->handlePump2State($serial, $value);
             return;
@@ -357,5 +422,26 @@ class MqttListen extends Command
         }
 
         return 'device_' . $deviceId;
+    }
+
+    /**
+     * Check if the given serial number belongs to the device this listener is monitoring.
+     * Returns the device if it matches, null otherwise.
+     */
+    protected function isListenerDevice(string $serial): ?Device
+    {
+        $device = Device::where('serial_number', $serial)->first();
+        
+        if (!$device) {
+            return null;
+        }
+
+        $listenerDeviceId = (int) $this->option('device-id');
+        
+        if ($device->id !== $listenerDeviceId) {
+            return null;
+        }
+
+        return $device;
     }
 }

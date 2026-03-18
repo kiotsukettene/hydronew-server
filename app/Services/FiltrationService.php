@@ -94,6 +94,8 @@ class FiltrationService
     /**
      * Handle valve 1 state changes
      * State: 1=open, 0=closed
+     * Stage 1 (MFC) completes when valve opens (state=1)
+     * Stages 2-4 start when valve opens (state=1)
      */
     public function handleValve1State(string $deviceSerial, int $stateValue): void
     {
@@ -121,18 +123,18 @@ class FiltrationService
             // Update valve state
             $filtrationProcess->update(['valve_1_state' => (bool)$stateValue]);
 
-            // If valve closed (0) on a paused process (resume after machine came back online), just set active
-            if ($stateValue === 0 && $filtrationProcess->status === 'paused') {
+            // If valve opened (1) on a paused process (resume after machine came back online), just set active
+            if ($stateValue === 1 && $filtrationProcess->status === 'paused') {
                 $filtrationProcess->update(['status' => 'active']);
-                Log::info('FiltrationService: Paused process resumed – valve 1 closed, set active', [
+                Log::info('FiltrationService: Paused process resumed – valve 1 opened, set active', [
                     'serial' => $deviceSerial,
                     'filtration_process_id' => $filtrationProcess->id,
                 ]);
                 return;
             }
 
-            // If valve closed (0) and Stage 1 is processing, complete Stage 1 and start Stage 2-4 cycle
-            if ($stateValue === 0) {
+            // If valve opened (1) and Stage 1 is processing, complete Stage 1 and start Stage 2-4 cycle
+            if ($stateValue === 1) {
                 $stage1 = TreatmentStage::where('treatment_id', $filtrationProcess->treatment_report_id)
                     ->where('stage_order', 1)
                     ->where('status', 'processing')
@@ -174,7 +176,7 @@ class FiltrationService
                         'success'
                     );
                 } else {
-                    Log::warning('FiltrationService: Valve 1 closed but Stage 1 not in processing – skipping completion', [
+                    Log::warning('FiltrationService: Valve 1 opened but Stage 1 not in processing – skipping completion', [
                         'serial' => $deviceSerial,
                         'treatment_report_id' => $filtrationProcess->treatment_report_id,
                     ]);
@@ -194,6 +196,8 @@ class FiltrationService
     /**
      * Handle valve 1 acknowledgment (when IoT sends ack=1 but no state message).
      * Treats ack as "command executed" and toggles valve state, then publishes state so frontend stays in sync.
+     * Stage 1 (MFC) completes when valve opens (state=1)
+     * Stages 2-4 start when valve opens (state=1)
      */
     public function handleValve1Ack(string $deviceSerial): void
     {
@@ -218,17 +222,17 @@ class FiltrationService
             // Ack=1 means command executed; new state is the opposite of current (OPEN/CLOSE toggled)
             $newState = $filtrationProcess->valve_1_state ? 0 : 1;
 
-            // If we would toggle to "open" but Stage 1 was already completed (stages_2_4 started), this is a late ack – keep valve closed
-            if ($newState === 1 && $filtrationProcess->stages_2_4_started_at !== null) {
-                $newState = 0;
+            // If we would toggle to "close" but Stage 1 was already completed (stages_2_4 started), this is a late ack – keep valve open
+            if ($newState === 0 && $filtrationProcess->stages_2_4_started_at !== null) {
+                $newState = 1;
             }
             $filtrationProcess->update(['valve_1_state' => (bool)$newState]);
 
-            // If valve closed (0) on a paused process, set back to active (resume after machine came back online)
-            if ($newState === 0 && $filtrationProcess->status === 'paused') {
+            // If valve opened (1) on a paused process, set back to active (resume after machine came back online)
+            if ($newState === 1 && $filtrationProcess->status === 'paused') {
                 $filtrationProcess->update(['status' => 'active']);
                 $this->publishValve1State($deviceSerial, $newState);
-                Log::info('FiltrationService: Paused process resumed (from valve ack) – valve 1 closed, set active', [
+                Log::info('FiltrationService: Paused process resumed (from valve ack) – valve 1 opened, set active', [
                     'serial' => $deviceSerial,
                     'filtration_process_id' => $filtrationProcess->id,
                 ]);
@@ -238,8 +242,8 @@ class FiltrationService
             // Publish valve 1 state so frontend can update UI
             $this->publishValve1State($deviceSerial, $newState);
 
-            // If valve closed (0) and Stage 1 is processing, complete Stage 1 and start Stage 2-4 cycle
-            if ($newState === 0) {
+            // If valve opened (1) and Stage 1 is processing, complete Stage 1 and start Stage 2-4 cycle
+            if ($newState === 1) {
                 $stage1 = TreatmentStage::where('treatment_id', $filtrationProcess->treatment_report_id)
                     ->where('stage_order', 1)
                     ->where('status', 'processing')
@@ -271,7 +275,7 @@ class FiltrationService
                         'success'
                     );
                 } else {
-                    Log::warning('FiltrationService: Valve 1 ack (closed) but Stage 1 not in processing – skipping completion', [
+                    Log::warning('FiltrationService: Valve 1 ack (opened) but Stage 1 not in processing – skipping completion', [
                         'serial' => $deviceSerial,
                         'treatment_report_id' => $filtrationProcess->treatment_report_id,
                     ]);
@@ -665,6 +669,7 @@ class FiltrationService
     /**
      * Check automatic valve 1 conditions based on sensor data
      * Called from MQTTSensorDataHandlerService after saving sensor readings
+     * OPEN condition triggers Stage 1 completion and Stages 2-4 start
      */
     public function checkAutoValveConditions(int $deviceId, string $waterType, array $sensorData): void
     {
@@ -691,12 +696,13 @@ class FiltrationService
             }
 
             // OPEN condition: water_level >= 100 AND dirty_water.electric_current < 10 AND stage 1 started more than 1 day ago AND valve not open
+            // When valve opens, Stage 1 completes and Stages 2-4 begin
             if (!$filtrationProcess->valve_1_state && $waterLevel >= 100) {
                 $currentOk = $electricCurrent !== null && (float)$electricCurrent < 10;
                 $stage1OldEnough = $filtrationProcess->stage_1_started_at &&
                     $filtrationProcess->stage_1_started_at->diffInHours(now()) >= 24;
                 if ($currentOk && $stage1OldEnough) {
-                    Log::info('FiltrationService: Auto-opening valve 1', [
+                    Log::info('FiltrationService: Auto-opening valve 1 (Stage 1 will complete and Stages 2-4 will start)', [
                         'device_id' => $deviceId,
                         'water_level' => $waterLevel,
                         'electric_current' => $electricCurrent,
@@ -707,7 +713,7 @@ class FiltrationService
                 }
             }
 
-            // CLOSE condition: water_level < 6 only (valve is open and tank drained)
+            // CLOSE condition: water_level < 6 only (valve is open and tank drained during Stage 1 MFC process)
             if ($filtrationProcess->valve_1_state && $waterLevel < 6) {
                 Log::info('FiltrationService: Auto-closing valve 1', [
                     'device_id' => $deviceId,
@@ -780,7 +786,8 @@ class FiltrationService
 
     /**
      * Called when device is detected offline (no heartbeat within 90s).
-     * Pauses treatment only if: valve 1 is open AND dirty_water water level > 6%.
+     * Pauses treatment only if: Stages 2-4 have started AND valve 1 is open AND dirty_water water level > 6%.
+     * (Valve 1 opens to complete Stage 1 and start Stages 2-4, so if device goes offline with valve open during stages 2-4, we pause)
      */
     public function onDeviceOffline(Device $device): void
     {
@@ -827,7 +834,7 @@ class FiltrationService
 
     /**
      * Called when heartbeat received (device online).
-     * If there is a paused process with valve_1_state true (water was in anode), re-open valve 1.
+     * If there is a paused process with valve_1_state true (water was in anode during Stages 2-4), re-open valve 1.
      */
     public function onDeviceOnline(string $deviceSerial): void
     {

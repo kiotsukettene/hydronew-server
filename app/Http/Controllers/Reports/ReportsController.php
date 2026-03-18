@@ -685,12 +685,35 @@ class ReportsController extends Controller
      */
     public function treatmentPerformance(TreatmentReportRequest $request): JsonResponse
     {
+        $user = $request->user();
         $validated = $request->validated();
-        $deviceId = $validated['device_id'];
+        
+        // Check if user has any connected devices
+        if ($user->devices->isEmpty()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'No Data Available',
+                'data' => null,
+            ], 200);
+        }
+
+        // If device_id is not provided, use the first device
+        $deviceId = $validated['device_id'] ?? $user->devices->first()->id;
+        
+        // Verify the device belongs to the authenticated user
+        $device = $user->devices->where('id', $deviceId)->first();
+        
+        if (!$device) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Device not found or does not belong to the user.',
+            ], 403);
+        }
+        
         $dateFrom = $validated['date_from'] ?? Carbon::now()->subDays(30)->toDateString();
         $dateTo = $validated['date_to'] ?? Carbon::now()->toDateString();
 
-        // Get treatment reports within date range
+        // Get treatment reports within date range for this specific device
         $reports = TreatmentReport::where('device_id', $deviceId)
             ->whereBetween('start_time', [$dateFrom, $dateTo])
             ->with('treatment_stages')
@@ -699,6 +722,7 @@ class ReportsController extends Controller
         if ($reports->isEmpty()) {
             return response()->json([
                 'status' => 'success',
+                'message' => 'No Data Available',
                 'data' => [
                     'total_cycles' => 0,
                     'success_rate' => 0,
@@ -706,6 +730,9 @@ class ReportsController extends Controller
                     'average_duration' => 0,
                     'stage_efficiency' => null,
                     'failure_analysis' => null,
+                    'total_water_processed' => 0,
+                    'average_water_per_cycle' => 0,
+                    'total_water_liters' => 0,
                 ],
                 'meta' => [
                     'device_id' => $deviceId,
@@ -798,6 +825,13 @@ class ReportsController extends Controller
             2
         );
 
+        // Water usage analytics
+        $totalWaterProcessed = $reports->sum('water_liters');
+        $averageWaterPerCycle = $reports->count() > 0
+            ? round($totalWaterProcessed / $reports->count(), 2)
+            : 0;
+        $latestTotalWater = $reports->sortByDesc('start_time')->first()?->total_water_liters ?? 0;
+
         return response()->json([
             'status' => 'success',
             'data' => [
@@ -809,6 +843,9 @@ class ReportsController extends Controller
                 'average_improvements' => $averageImprovements,
                 'failure_analysis' => $failureAnalysis,
                 'performance_score' => $performanceScore,
+                'total_water_processed' => $totalWaterProcessed,
+                'average_water_per_cycle' => $averageWaterPerCycle,
+                'total_water_liters' => $latestTotalWater,
             ],
             'meta' => [
                 'device_id' => $deviceId,
@@ -824,13 +861,36 @@ class ReportsController extends Controller
      */
     public function treatmentEfficiency(TreatmentReportRequest $request): JsonResponse
     {
+        $user = $request->user();
         $validated = $request->validated();
-        $deviceId = $validated['device_id'];
+        
+        // Check if user has any connected devices
+        if ($user->devices->isEmpty()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'No Data Available',
+                'data' => null,
+            ], 200);
+        }
+        
+        // If device_id is not provided, use the first device
+        $deviceId = $validated['device_id'] ?? $user->devices->first()->id;
+        
+        // Verify the device belongs to the authenticated user
+        $device = $user->devices->where('id', $deviceId)->first();
+        
+        if (!$device) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Device not found or does not belong to the user.',
+            ], 403);
+        }
+        
         $days = $validated['days'] ?? 30;
 
         $dateFrom = Carbon::now()->subDays($days)->startOfDay();
 
-        // Get treatment reports
+        // Get treatment reports for this specific device
         $reports = TreatmentReport::where('device_id', $deviceId)
             ->where('start_time', '>=', $dateFrom)
             ->with('treatment_stages')
@@ -840,12 +900,15 @@ class ReportsController extends Controller
         if ($reports->isEmpty()) {
             return response()->json([
                 'status' => 'success',
+                'message' => 'No Data Available',
                 'data' => [
                     'water_quality_improvements' => null,
                     'cycle_trends' => [],
                     'success_rate_trend' => [],
                     'efficiency_score_trend' => 'stable',
                     'maintenance_recommendation' => null,
+                    'total_water_processed' => 0,
+                    'average_water_per_day' => 0,
                 ],
                 'meta' => [
                     'device_id' => $deviceId,
@@ -891,6 +954,7 @@ class ReportsController extends Controller
             $cycleTrends[] = [
                 'date' => $date,
                 'cycle_count' => $dayReports->count(),
+                'water_liters' => $dayReports->sum('water_liters'),
             ];
 
             $successRate = $dayReports->where('final_status', 'success')->count() / $dayReports->count() * 100;
@@ -932,6 +996,10 @@ class ReportsController extends Controller
             $maintenanceRecommendation = 'Low cycle frequency detected. Verify system is operating as expected.';
         }
 
+        // Water usage analytics
+        $totalWaterProcessed = $reports->sum('water_liters');
+        $averageWaterPerDay = $days > 0 ? round($totalWaterProcessed / $days, 2) : 0;
+
         return response()->json([
             'status' => 'success',
             'data' => [
@@ -942,6 +1010,8 @@ class ReportsController extends Controller
                 'efficiency_score_trend' => $efficiencyTrend,
                 'recent_success_rate' => $recentSuccessRate,
                 'maintenance_recommendation' => $maintenanceRecommendation,
+                'total_water_processed' => $totalWaterProcessed,
+                'average_water_per_day' => $averageWaterPerDay,
             ],
             'meta' => [
                 'device_id' => $deviceId,

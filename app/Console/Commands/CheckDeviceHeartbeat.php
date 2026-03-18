@@ -9,8 +9,8 @@ use Illuminate\Console\Command;
 class CheckDeviceHeartbeat extends Command
 {
     protected $signature = 'device:check-heartbeat
-                            {--timeout=90 : Seconds without heartbeat to consider device offline}';
-    protected $description = 'Mark devices offline when heartbeat has not been received within timeout; pause treatment if valve 1 open and dirty water > 6%';
+                            {--timeout=60 : Seconds without heartbeat to consider device offline}';
+    protected $description = 'Mark devices offline when heartbeat has not been received within timeout (IoT publishes every 45s); pause treatment if valve 1 open and dirty water > 6%';
 
     public function __construct(
         protected FiltrationService $filtrationService

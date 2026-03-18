@@ -12,7 +12,8 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Dispatched 90 seconds after a heartbeat is received.
+ * Dispatched 60 seconds after a heartbeat is received.
+ * IoT publishes heartbeat every 45 seconds, so 60s timeout gives 15s buffer.
  * If no newer heartbeat arrived, marks the device offline and pauses treatment if needed (valve 1 open, dirty water > 6%).
  */
 class CheckDeviceOfflineJob implements ShouldQueue
@@ -31,11 +32,11 @@ class CheckDeviceOfflineJob implements ShouldQueue
         }
 
         $device->refresh();
-        $threshold = now()->subSeconds(90);
+        $threshold = now()->subSeconds(60);
         $lastHeartbeat = $device->last_heartbeat_at;
 
         if ($lastHeartbeat !== null && $lastHeartbeat->gte($threshold)) {
-            // A heartbeat arrived in the last 90 seconds – still online, do nothing
+            // A heartbeat arrived in the last 60 seconds – still online, do nothing
             return;
         }
 
@@ -43,7 +44,7 @@ class CheckDeviceOfflineJob implements ShouldQueue
             return;
         }
 
-        Log::info('CheckDeviceOfflineJob: Marking device offline (no heartbeat within 90s)', [
+        Log::info('CheckDeviceOfflineJob: Marking device offline (no heartbeat within 60s)', [
             'serial' => $this->deviceSerial,
             'last_heartbeat_at' => $lastHeartbeat?->toDateTimeString(),
         ]);
