@@ -685,12 +685,35 @@ class ReportsController extends Controller
      */
     public function treatmentPerformance(TreatmentReportRequest $request): JsonResponse
     {
+        $user = $request->user();
         $validated = $request->validated();
-        $deviceId = $validated['device_id'];
+        
+        // Check if user has any connected devices
+        if ($user->devices->isEmpty()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'No Data Available',
+                'data' => null,
+            ], 200);
+        }
+
+        // If device_id is not provided, use the first device
+        $deviceId = $validated['device_id'] ?? $user->devices->first()->id;
+        
+        // Verify the device belongs to the authenticated user
+        $device = $user->devices->where('id', $deviceId)->first();
+        
+        if (!$device) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Device not found or does not belong to the user.',
+            ], 403);
+        }
+        
         $dateFrom = $validated['date_from'] ?? Carbon::now()->subDays(30)->toDateString();
         $dateTo = $validated['date_to'] ?? Carbon::now()->toDateString();
 
-        // Get treatment reports within date range
+        // Get treatment reports within date range for this specific device
         $reports = TreatmentReport::where('device_id', $deviceId)
             ->whereBetween('start_time', [$dateFrom, $dateTo])
             ->with('treatment_stages')
@@ -699,6 +722,7 @@ class ReportsController extends Controller
         if ($reports->isEmpty()) {
             return response()->json([
                 'status' => 'success',
+                'message' => 'No Data Available',
                 'data' => [
                     'total_cycles' => 0,
                     'success_rate' => 0,
@@ -824,13 +848,36 @@ class ReportsController extends Controller
      */
     public function treatmentEfficiency(TreatmentReportRequest $request): JsonResponse
     {
+        $user = $request->user();
         $validated = $request->validated();
-        $deviceId = $validated['device_id'];
+        
+        // Check if user has any connected devices
+        if ($user->devices->isEmpty()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'No Data Available',
+                'data' => null,
+            ], 200);
+        }
+        
+        // If device_id is not provided, use the first device
+        $deviceId = $validated['device_id'] ?? $user->devices->first()->id;
+        
+        // Verify the device belongs to the authenticated user
+        $device = $user->devices->where('id', $deviceId)->first();
+        
+        if (!$device) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Device not found or does not belong to the user.',
+            ], 403);
+        }
+        
         $days = $validated['days'] ?? 30;
 
         $dateFrom = Carbon::now()->subDays($days)->startOfDay();
 
-        // Get treatment reports
+        // Get treatment reports for this specific device
         $reports = TreatmentReport::where('device_id', $deviceId)
             ->where('start_time', '>=', $dateFrom)
             ->with('treatment_stages')
@@ -840,6 +887,7 @@ class ReportsController extends Controller
         if ($reports->isEmpty()) {
             return response()->json([
                 'status' => 'success',
+                'message' => 'No Data Available',
                 'data' => [
                     'water_quality_improvements' => null,
                     'cycle_trends' => [],
