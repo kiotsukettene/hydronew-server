@@ -20,7 +20,7 @@ class TreatmentReportRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'device_id' => ['required', 'exists:devices,id'],
+            'device_id' => ['nullable', 'exists:devices,id'],
             'date_from' => ['nullable', 'date', 'before_or_equal:date_to'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'days' => ['nullable', 'integer', 'min:1', 'max:90'],
