@@ -730,6 +730,9 @@ class ReportsController extends Controller
                     'average_duration' => 0,
                     'stage_efficiency' => null,
                     'failure_analysis' => null,
+                    'total_water_processed' => 0,
+                    'average_water_per_cycle' => 0,
+                    'total_water_liters' => 0,
                 ],
                 'meta' => [
                     'device_id' => $deviceId,
@@ -822,6 +825,13 @@ class ReportsController extends Controller
             2
         );
 
+        // Water usage analytics
+        $totalWaterProcessed = $reports->sum('water_liters');
+        $averageWaterPerCycle = $reports->count() > 0
+            ? round($totalWaterProcessed / $reports->count(), 2)
+            : 0;
+        $latestTotalWater = $reports->sortByDesc('start_time')->first()?->total_water_liters ?? 0;
+
         return response()->json([
             'status' => 'success',
             'data' => [
@@ -833,6 +843,9 @@ class ReportsController extends Controller
                 'average_improvements' => $averageImprovements,
                 'failure_analysis' => $failureAnalysis,
                 'performance_score' => $performanceScore,
+                'total_water_processed' => $totalWaterProcessed,
+                'average_water_per_cycle' => $averageWaterPerCycle,
+                'total_water_liters' => $latestTotalWater,
             ],
             'meta' => [
                 'device_id' => $deviceId,
@@ -894,6 +907,8 @@ class ReportsController extends Controller
                     'success_rate_trend' => [],
                     'efficiency_score_trend' => 'stable',
                     'maintenance_recommendation' => null,
+                    'total_water_processed' => 0,
+                    'average_water_per_day' => 0,
                 ],
                 'meta' => [
                     'device_id' => $deviceId,
@@ -939,6 +954,7 @@ class ReportsController extends Controller
             $cycleTrends[] = [
                 'date' => $date,
                 'cycle_count' => $dayReports->count(),
+                'water_liters' => $dayReports->sum('water_liters'),
             ];
 
             $successRate = $dayReports->where('final_status', 'success')->count() / $dayReports->count() * 100;
@@ -980,6 +996,10 @@ class ReportsController extends Controller
             $maintenanceRecommendation = 'Low cycle frequency detected. Verify system is operating as expected.';
         }
 
+        // Water usage analytics
+        $totalWaterProcessed = $reports->sum('water_liters');
+        $averageWaterPerDay = $days > 0 ? round($totalWaterProcessed / $days, 2) : 0;
+
         return response()->json([
             'status' => 'success',
             'data' => [
@@ -990,6 +1010,8 @@ class ReportsController extends Controller
                 'efficiency_score_trend' => $efficiencyTrend,
                 'recent_success_rate' => $recentSuccessRate,
                 'maintenance_recommendation' => $maintenanceRecommendation,
+                'total_water_processed' => $totalWaterProcessed,
+                'average_water_per_day' => $averageWaterPerDay,
             ],
             'meta' => [
                 'device_id' => $deviceId,
