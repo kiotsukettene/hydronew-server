@@ -96,6 +96,7 @@ class FiltrationService
      * State: 1=open, 0=closed
      * Stage 1 (MFC) completes when valve opens (state=1)
      * Stages 2-4 start when valve opens (state=1)
+     * When valve opens, schedule auto-close after 24 minutes
      */
     public function handleValve1State(string $deviceSerial, int $stateValue): void
     {
@@ -131,6 +132,21 @@ class FiltrationService
                     'filtration_process_id' => $filtrationProcess->id,
                 ]);
                 return;
+            }
+
+            // If valve opened (1), schedule auto-close after 24 minutes
+            if ($stateValue === 1) {
+                $delaySeconds = 24 * 60; // 24 minutes in seconds
+                
+                \App\Jobs\CloseValve1Job::dispatch($device->id)
+                    ->delay(now()->addSeconds($delaySeconds));
+                
+                Log::info('FiltrationService: Scheduled auto-close for valve 1', [
+                    'serial' => $deviceSerial,
+                    'device_id' => $device->id,
+                    'delay_seconds' => $delaySeconds,
+                    'close_at' => now()->addSeconds($delaySeconds)->toDateTimeString()
+                ]);
             }
 
             // If valve opened (1) and Stage 1 is processing, complete Stage 1 and start Stage 2-4 cycle
@@ -198,6 +214,7 @@ class FiltrationService
      * Treats ack as "command executed" and toggles valve state, then publishes state so frontend stays in sync.
      * Stage 1 (MFC) completes when valve opens (state=1)
      * Stages 2-4 start when valve opens (state=1)
+     * When valve opens, schedule auto-close after 24 minutes
      */
     public function handleValve1Ack(string $deviceSerial): void
     {
@@ -222,10 +239,6 @@ class FiltrationService
             // Ack=1 means command executed; new state is the opposite of current (OPEN/CLOSE toggled)
             $newState = $filtrationProcess->valve_1_state ? 0 : 1;
 
-            // If we would toggle to "close" but Stage 1 was already completed (stages_2_4 started), this is a late ack – keep valve open
-            if ($newState === 0 && $filtrationProcess->stages_2_4_started_at !== null) {
-                $newState = 1;
-            }
             $filtrationProcess->update(['valve_1_state' => (bool)$newState]);
 
             // If valve opened (1) on a paused process, set back to active (resume after machine came back online)
@@ -241,6 +254,21 @@ class FiltrationService
 
             // Publish valve 1 state so frontend can update UI
             $this->publishValve1State($deviceSerial, $newState);
+
+            // If valve opened (1), schedule auto-close after 24 minutes
+            if ($newState === 1) {
+                $delaySeconds = 24 * 60; // 24 minutes in seconds
+                
+                \App\Jobs\CloseValve1Job::dispatch($device->id)
+                    ->delay(now()->addSeconds($delaySeconds));
+                
+                Log::info('FiltrationService: Scheduled auto-close for valve 1', [
+                    'serial' => $deviceSerial,
+                    'device_id' => $device->id,
+                    'delay_seconds' => $delaySeconds,
+                    'close_at' => now()->addSeconds($delaySeconds)->toDateTimeString()
+                ]);
+            }
 
             // If valve opened (1) and Stage 1 is processing, complete Stage 1 and start Stage 2-4 cycle
             if ($newState === 1) {
@@ -698,7 +726,7 @@ class FiltrationService
             // OPEN condition: water_level >= 100 AND dirty_water.electric_current < 10 AND stage 1 started more than 1 day ago AND valve not open
             // When valve opens, Stage 1 completes and Stages 2-4 begin
             if (!$filtrationProcess->valve_1_state && $waterLevel >= 100) {
-                $currentOk = $electricCurrent !== null && (float)$electricCurrent < 10;
+                $currentOk = $electricCurrent !== null && (float)$electricCurrent < 50;
                 $stage1OldEnough = $filtrationProcess->stage_1_started_at &&
                     $filtrationProcess->stage_1_started_at->diffInHours(now()) >= 24;
                 if ($currentOk && $stage1OldEnough) {
